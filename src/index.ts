@@ -52,6 +52,10 @@ export { buildUrl, deriveBaseUrl } from './core/url-builder'
 // Auth utilities
 export { injectAuth, maskAuth } from './core/auth'
 
+// Middleware
+export { withRetry, corsProxy, logging } from './middleware'
+export type { RetryOptions, CorsProxyOptions, LoggingOptions } from './middleware'
+
 // Adapters (for advanced usage)
 export { parseOpenAPISpec } from './adapters/openapi/parser'
 export { parseRawUrl } from './adapters/raw/parser'
