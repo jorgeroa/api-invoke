@@ -94,28 +94,6 @@ export class ApiBridgeClient {
     })
   }
 
-  /**
-   * Execute an operation and format the result for agent consumption.
-   * Truncates large responses and returns structured metadata.
-   */
-  async executeAsTool(
-    operationId: string,
-    args: Record<string, unknown> = {},
-  ): Promise<{ data: unknown; summary: string }> {
-    const result = await this.execute(operationId, args)
-
-    let summary: string
-    if (Array.isArray(result.data)) {
-      summary = `${result.data.length} item${result.data.length !== 1 ? 's' : ''} returned`
-    } else if (result.data && typeof result.data === 'object') {
-      const keys = Object.keys(result.data)
-      summary = `${keys.length} field${keys.length !== 1 ? 's' : ''} returned`
-    } else {
-      summary = 'Response received'
-    }
-
-    return { data: result.data, summary }
-  }
 }
 
 /**

@@ -1,7 +1,7 @@
 /**
- * api-bridge-rt — Universal Runtime API Bridge
+ * api-bridge-rt — Runtime API Bridge
  *
- * Parse any API spec (or raw URL) at runtime, execute safely, export as agent tools.
+ * Parse any API spec (or raw URL) at runtime and execute operations safely.
  */
 
 // Main client
