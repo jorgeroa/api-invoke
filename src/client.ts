@@ -16,9 +16,16 @@ function isSpecUrl(url: string): boolean {
   return (
     lower.endsWith('/openapi.json') ||
     lower.endsWith('/openapi.yaml') ||
+    lower.endsWith('/openapi.yml') ||
     lower.endsWith('/swagger.json') ||
     lower.endsWith('/swagger.yaml') ||
+    lower.endsWith('/swagger.yml') ||
+    lower.endsWith('/spec.json') ||
+    lower.endsWith('/spec.yaml') ||
+    lower.endsWith('/spec.yml') ||
     lower.endsWith('/api-docs') ||
+    lower.endsWith('/api-docs.json') ||
+    lower.endsWith('/api-docs.yaml') ||
     lower.endsWith('/v2/api-docs') ||
     lower.endsWith('/v3/api-docs') ||
     lower.includes('swagger') ||
@@ -117,7 +124,15 @@ export async function createClient(
       if (!response.ok) {
         throw new Error(`Failed to fetch spec: ${response.status} ${response.statusText}`)
       }
-      const specObject = await response.json()
+      const text = await response.text()
+      let specObject: object
+      try {
+        specObject = JSON.parse(text)
+      } catch {
+        // YAML or other format — let SwaggerParser resolve the URL directly
+        api = await parseOpenAPISpec(input, { specUrl: input })
+        return finalize(api, options)
+      }
       api = await parseOpenAPISpec(specObject, { specUrl: input })
     } else {
       // Raw URL mode
@@ -128,10 +143,12 @@ export async function createClient(
     api = await parseOpenAPISpec(input, { specUrl: options.specUrl })
   }
 
-  // Apply enricher if provided
+  return finalize(api, options)
+}
+
+async function finalize(api: ParsedAPI, options: ClientOptions): Promise<ApiBridgeClient> {
   if (options.enricher) {
     api = await Promise.resolve(options.enricher.enrichAPI(api))
   }
-
   return new ApiBridgeClient(api, options)
 }
