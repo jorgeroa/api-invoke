@@ -131,6 +131,13 @@ export interface ExecutionResult {
   elapsedMs: number
 }
 
+// === Enricher ===
+
+export interface Enricher {
+  readonly name: string
+  enrichAPI(api: ParsedAPI): ParsedAPI | Promise<ParsedAPI>
+}
+
 // === Client Options ===
 
 export interface ClientOptions {
@@ -138,6 +145,7 @@ export interface ClientOptions {
   auth?: Auth
   middleware?: Middleware[]
   fetch?: typeof globalThis.fetch
+  enricher?: Enricher
 }
 
 // === Middleware ===

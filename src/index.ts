@@ -20,6 +20,7 @@ export type {
   ExecutionResult,
   ClientOptions,
   Middleware,
+  Enricher,
 } from './core/types'
 
 // Constants

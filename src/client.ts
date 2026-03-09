@@ -150,5 +150,10 @@ export async function createClient(
     api = await parseOpenAPISpec(input, { specUrl: options.specUrl })
   }
 
+  // Apply enricher if provided
+  if (options.enricher) {
+    api = await Promise.resolve(options.enricher.enrichAPI(api))
+  }
+
   return new ApiBridgeClient(api, options)
 }

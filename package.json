@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./enrichment": {
+      "types": "./dist/enrichment/index.d.ts",
+      "import": "./dist/enrichment/index.js",
+      "require": "./dist/enrichment/index.cjs"
     }
   },
   "files": [
