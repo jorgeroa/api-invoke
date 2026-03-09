@@ -50,6 +50,8 @@ export interface ParsedAPI {
   operations: Operation[]
   authSchemes: AuthScheme[]
   specFormat: SpecFormat | string
+  /** Raw spec version string from the spec (e.g. '3.0.3', '2.0') */
+  rawSpecVersion?: string
 }
 
 export interface Operation {
@@ -66,7 +68,7 @@ export interface Operation {
 
 export interface Parameter {
   name: string
-  in: ParamLocation | string
+  in: ParamLocation
   required: boolean
   description: string
   schema: ParameterSchema

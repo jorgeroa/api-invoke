@@ -4,6 +4,7 @@
  */
 
 import type { Operation, Parameter } from './types'
+import { ParamLocation } from './types'
 
 /**
  * Build a full URL from base URL, operation path, and arguments.
@@ -17,7 +18,7 @@ export function buildUrl(
   // Interpolate path parameters
   let path = operation.path
   for (const param of operation.parameters) {
-    if (param.in === 'path' && args[param.name] !== undefined) {
+    if (param.in === ParamLocation.PATH && args[param.name] !== undefined) {
       path = path.replace(
         `{${param.name}}`,
         encodeURIComponent(String(args[param.name])),
@@ -32,7 +33,7 @@ export function buildUrl(
 
   // Append query parameters
   for (const param of operation.parameters) {
-    if (param.in === 'query' && args[param.name] !== undefined) {
+    if (param.in === ParamLocation.QUERY && args[param.name] !== undefined) {
       url.searchParams.set(param.name, String(args[param.name]))
     }
   }
@@ -64,7 +65,7 @@ export function extractHeaderParams(
 ): Record<string, string> {
   const headers: Record<string, string> = {}
   for (const param of parameters) {
-    if (param.in === 'header' && args[param.name] !== undefined) {
+    if (param.in === ParamLocation.HEADER && args[param.name] !== undefined) {
       headers[param.name] = String(args[param.name])
     }
   }

@@ -4,6 +4,7 @@
 
 import type { OpenAPIV3, OpenAPIV2 } from 'openapi-types'
 import type { AuthScheme } from '../../core/types'
+import { AuthType, ParamLocation } from '../../core/types'
 
 /**
  * Map OpenAPI/Swagger security schemes to AuthScheme array.
@@ -27,13 +28,13 @@ function mapSingleScheme(
   // apiKey type (both OpenAPI 3.x and Swagger 2.0)
   if (scheme.type === 'apiKey') {
     const apiKeyScheme = scheme as OpenAPIV3.ApiKeySecurityScheme | OpenAPIV2.SecuritySchemeApiKey
-    if (apiKeyScheme.in === 'header') {
-      return { name, authType: 'apiKey', metadata: { headerName: apiKeyScheme.name }, description: baseDescription }
+    if (apiKeyScheme.in === ParamLocation.HEADER) {
+      return { name, authType: AuthType.API_KEY, metadata: { headerName: apiKeyScheme.name }, description: baseDescription }
     }
-    if (apiKeyScheme.in === 'query') {
-      return { name, authType: 'queryParam', metadata: { paramName: apiKeyScheme.name }, description: baseDescription }
+    if (apiKeyScheme.in === ParamLocation.QUERY) {
+      return { name, authType: AuthType.QUERY_PARAM, metadata: { paramName: apiKeyScheme.name }, description: baseDescription }
     }
-    if (apiKeyScheme.in === 'cookie') {
+    if (apiKeyScheme.in === ParamLocation.COOKIE) {
       return { name, authType: null, metadata: {}, description: `${baseDescription} (unsupported: cookie-based auth)` }
     }
   }
@@ -41,17 +42,17 @@ function mapSingleScheme(
   // http type (OpenAPI 3.x only)
   if (scheme.type === 'http') {
     const httpScheme = scheme as OpenAPIV3.HttpSecurityScheme
-    if (httpScheme.scheme === 'bearer') {
-      return { name, authType: 'bearer', metadata: {}, description: baseDescription }
+    if (httpScheme.scheme === AuthType.BEARER) {
+      return { name, authType: AuthType.BEARER, metadata: {}, description: baseDescription }
     }
-    if (httpScheme.scheme === 'basic') {
-      return { name, authType: 'basic', metadata: {}, description: baseDescription }
+    if (httpScheme.scheme === AuthType.BASIC) {
+      return { name, authType: AuthType.BASIC, metadata: {}, description: baseDescription }
     }
   }
 
   // basic type (Swagger 2.0 only)
   if (scheme.type === 'basic') {
-    return { name, authType: 'basic', metadata: {}, description: baseDescription }
+    return { name, authType: AuthType.BASIC, metadata: {}, description: baseDescription }
   }
 
   // oauth2

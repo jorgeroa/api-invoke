@@ -13,6 +13,7 @@ import type {
   RequestBody,
   RequestBodySchema,
   RequestBodyProperty,
+  ParamLocation,
 } from '../../core/types'
 import { SpecFormat } from '../../core/types'
 import { extractOpenAPI3BaseUrl, extractSwagger2BaseUrl } from './base-url'
@@ -63,6 +64,7 @@ export async function parseOpenAPISpec(
       operations,
       authSchemes,
       specFormat: isOpenAPI3 ? SpecFormat.OPENAPI_3 : SpecFormat.OPENAPI_2,
+      rawSpecVersion: specVersion,
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
@@ -88,7 +90,7 @@ function extractOperations(
       const op = (pathItem as Record<string, unknown>)[method] as OpenAPIV3.OperationObject | OpenAPIV2.OperationObject
       const operationParams = op.parameters ?? []
       const allParams = [...pathLevelParams, ...operationParams].filter(
-        (p) => (p as { in: string }).in !== 'body',
+        (p) => (p as { in: string }).in !== 'body', // Swagger 2.0 body params are handled via requestBody
       )
 
       const parameters = allParams.map((param) =>
@@ -124,7 +126,7 @@ function parseParameter(
   isOpenAPI3: boolean,
 ): Parameter {
   const name = param.name
-  const location = param.in as string
+  const location = param.in as ParamLocation
   const required = param.required ?? location === 'path'
   const description = param.description ?? ''
 

@@ -4,6 +4,7 @@
  */
 
 import type { Auth } from './types'
+import { AuthType, ParamLocation } from './types'
 
 export interface AuthenticatedRequest {
   url: string
@@ -21,28 +22,28 @@ export function injectAuth(
   const result = { url, headers: { ...headers } }
 
   switch (auth.type) {
-    case 'bearer':
+    case AuthType.BEARER:
       result.headers['Authorization'] = `Bearer ${auth.token}`
       break
 
-    case 'basic': {
+    case AuthType.BASIC: {
       // btoa is available in all modern browsers and Node 16+
       const encoded = btoa(`${auth.username}:${auth.password}`)
       result.headers['Authorization'] = `Basic ${encoded}`
       break
     }
 
-    case 'apiKey':
-      if (auth.location === 'header') {
+    case AuthType.API_KEY:
+      if (auth.location === ParamLocation.HEADER) {
         result.headers[auth.name] = auth.value
-      } else if (auth.location === 'query') {
+      } else if (auth.location === ParamLocation.QUERY) {
         const u = new URL(url)
         u.searchParams.set(auth.name, auth.value)
         result.url = u.toString()
       }
       break
 
-    case 'oauth2':
+    case AuthType.OAUTH2:
       result.headers['Authorization'] = `Bearer ${auth.accessToken}`
       break
   }
@@ -55,15 +56,15 @@ export function injectAuth(
  */
 export function maskAuth(auth: Auth): string {
   switch (auth.type) {
-    case 'bearer': {
+    case AuthType.BEARER: {
       const preview = auth.token.substring(0, 4)
       return `Bearer ${preview}***`
     }
-    case 'basic':
+    case AuthType.BASIC:
       return `Basic ${auth.username}:***`
-    case 'apiKey':
+    case AuthType.API_KEY:
       return `${auth.name}: ***`
-    case 'oauth2':
+    case AuthType.OAUTH2:
       return `OAuth2 ***`
   }
 }

@@ -15,6 +15,7 @@ export type {
   ParameterSchema,
   RequestBody,
   RequestBodySchema,
+  RequestBodyProperty,
   Auth,
   AuthScheme,
   ExecutionResult,
@@ -43,14 +44,17 @@ export {
   timeoutError,
 } from './core/errors'
 
-// Execution (Tier 3: zero-spec)
-export { executeRaw } from './core/executor'
+// Execution
+export { executeOperation, executeRaw } from './core/executor'
+export type { ExecuteOptions } from './core/executor'
 
 // URL utilities
 export { buildUrl, deriveBaseUrl } from './core/url-builder'
 
 // Auth utilities
 export { injectAuth, maskAuth } from './core/auth'
+export { toAuth, AuthConfigType } from './core/auth-config'
+export type { AuthConfig } from './core/auth-config'
 
 // Middleware
 export { withRetry, corsProxy, logging } from './middleware'

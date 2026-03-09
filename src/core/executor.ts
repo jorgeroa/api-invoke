@@ -4,6 +4,7 @@
  */
 
 import type { Auth, ExecutionResult, Middleware, Operation } from './types'
+import { HttpMethod } from './types'
 import { buildUrl, extractHeaderParams } from './url-builder'
 import { injectAuth } from './auth'
 import {
@@ -18,6 +19,8 @@ export interface ExecuteOptions {
   auth?: Auth
   middleware?: Middleware[]
   fetch?: typeof globalThis.fetch
+  /** If false, return ExecutionResult for all HTTP statuses instead of throwing. Default: true. */
+  throwOnHttpError?: boolean
 }
 
 /**
@@ -43,7 +46,7 @@ export async function executeOperation(
 
   // Add body
   let body: string | undefined
-  if (args['body'] && method !== 'GET') {
+  if (args['body'] && method !== HttpMethod.GET) {
     body = typeof args['body'] === 'string' ? args['body'] : JSON.stringify(args['body'])
     headers['Content-Type'] = 'application/json'
   }
@@ -112,24 +115,15 @@ export async function executeOperation(
     responseHeaders[key] = value
   })
 
-  // Check for auth errors
-  if (response.status === 401 || response.status === 403) {
-    throw authError(url, response.status as 401 | 403)
-  }
-
-  // Check for HTTP errors
-  if (!response.ok) {
-    throw httpError(url, response.status, response.statusText)
-  }
-
-  // Parse response
+  // Parse response body (always, so it's available even for error responses)
   let data: unknown
   const contentType = response.headers.get('content-type') || ''
   if (contentType.includes('application/json')) {
     try {
       data = await response.json()
     } catch {
-      throw parseError(url)
+      if (options.throwOnHttpError !== false) throw parseError(url)
+      data = null
     }
   } else {
     const text = await response.text()
@@ -141,13 +135,25 @@ export async function executeOperation(
     }
   }
 
-  return {
+  const result: ExecutionResult = {
     status: response.status,
     data,
     headers: responseHeaders,
     request: { method, url, headers },
     elapsedMs,
   }
+
+  // Check for HTTP errors (skip when caller wants all results)
+  if (options.throwOnHttpError !== false) {
+    if (response.status === 401 || response.status === 403) {
+      throw authError(url, response.status as 401 | 403)
+    }
+    if (!response.ok) {
+      throw httpError(url, response.status, response.statusText)
+    }
+  }
+
+  return result
 }
 
 /**
