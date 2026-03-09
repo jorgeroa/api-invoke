@@ -1,11 +1,9 @@
 /**
- * api-bridge-rt — Runtime API Bridge
- *
- * Parse any API spec (or raw URL) at runtime and execute operations safely.
+ * api-invoke — Parse any API spec and execute operations.
  */
 
 // Main client
-export { createClient, ApiBridgeClient } from './client'
+export { createClient, ApiInvokeClient } from './client'
 
 // Core types
 export type {
@@ -34,7 +32,7 @@ export {
 
 // Errors
 export {
-  ApiBridgeError,
+  ApiInvokeError,
   ErrorKind,
   corsError,
   networkError,

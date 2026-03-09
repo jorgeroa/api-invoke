@@ -1,5 +1,5 @@
 /**
- * Maps OpenAPI/Swagger security schemes to api-bridge-rt auth types.
+ * Maps OpenAPI/Swagger security schemes to api-invoke auth types.
  */
 
 import type { OpenAPIV3, OpenAPIV2 } from 'openapi-types'

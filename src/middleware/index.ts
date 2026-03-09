@@ -1,5 +1,5 @@
 /**
- * api-bridge-rt/middleware — Built-in middleware for common use cases.
+ * api-invoke/middleware — Built-in middleware for common use cases.
  */
 
 export { withRetry } from './retry'

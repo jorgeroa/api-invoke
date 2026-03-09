@@ -14,7 +14,7 @@ export const ErrorKind = {
 } as const
 export type ErrorKind = (typeof ErrorKind)[keyof typeof ErrorKind]
 
-export class ApiBridgeError extends Error {
+export class ApiInvokeError extends Error {
   readonly kind: ErrorKind | string
   readonly status?: number
   readonly suggestion: string
@@ -28,7 +28,7 @@ export class ApiBridgeError extends Error {
     status?: number
   }) {
     super(opts.message)
-    this.name = 'ApiBridgeError'
+    this.name = 'ApiInvokeError'
     this.kind = opts.kind
     this.suggestion = opts.suggestion
     this.retryable = opts.retryable ?? false
@@ -36,8 +36,8 @@ export class ApiBridgeError extends Error {
   }
 }
 
-export function corsError(url: string): ApiBridgeError {
-  return new ApiBridgeError({
+export function corsError(url: string): ApiInvokeError {
+  return new ApiInvokeError({
     kind: ErrorKind.CORS,
     message: `Cannot access ${url} — blocked by CORS policy.`,
     suggestion: 'This API does not allow browser requests. Use a CORS proxy or server-side execution.',
@@ -45,8 +45,8 @@ export function corsError(url: string): ApiBridgeError {
   })
 }
 
-export function networkError(url: string): ApiBridgeError {
-  return new ApiBridgeError({
+export function networkError(url: string): ApiInvokeError {
+  return new ApiInvokeError({
     kind: ErrorKind.NETWORK,
     message: `Network error while fetching ${url}.`,
     suggestion: 'Check your internet connection and verify the URL is correct.',
@@ -54,8 +54,8 @@ export function networkError(url: string): ApiBridgeError {
   })
 }
 
-export function authError(url: string, status: 401 | 403): ApiBridgeError {
-  return new ApiBridgeError({
+export function authError(url: string, status: 401 | 403): ApiInvokeError {
+  return new ApiInvokeError({
     kind: ErrorKind.AUTH,
     message: status === 401
       ? `Authentication failed for ${url} (401)`
@@ -68,7 +68,7 @@ export function authError(url: string, status: 401 | 403): ApiBridgeError {
   })
 }
 
-export function httpError(url: string, status: number, statusText: string): ApiBridgeError {
+export function httpError(url: string, status: number, statusText: string): ApiInvokeError {
   const retryable = status === 429 || status >= 500
   const kind = status === 429 ? ErrorKind.RATE_LIMIT : ErrorKind.HTTP
 
@@ -83,7 +83,7 @@ export function httpError(url: string, status: number, statusText: string): ApiB
     suggestion = `The API returned an error (${status}). Verify the request.`
   }
 
-  return new ApiBridgeError({
+  return new ApiInvokeError({
     kind,
     message: `API returned ${status} ${statusText} for ${url}.`,
     suggestion,
@@ -92,8 +92,8 @@ export function httpError(url: string, status: number, statusText: string): ApiB
   })
 }
 
-export function parseError(url: string): ApiBridgeError {
-  return new ApiBridgeError({
+export function parseError(url: string): ApiInvokeError {
+  return new ApiInvokeError({
     kind: ErrorKind.PARSE,
     message: `Failed to parse response from ${url} as JSON.`,
     suggestion: 'The API did not return valid JSON. Ensure the URL points to a JSON API endpoint.',
@@ -101,8 +101,8 @@ export function parseError(url: string): ApiBridgeError {
   })
 }
 
-export function timeoutError(url: string): ApiBridgeError {
-  return new ApiBridgeError({
+export function timeoutError(url: string): ApiInvokeError {
+  return new ApiInvokeError({
     kind: ErrorKind.TIMEOUT,
     message: `Request to ${url} timed out.`,
     suggestion: 'The server took too long to respond. Try again or increase the timeout.',

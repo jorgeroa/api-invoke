@@ -91,7 +91,7 @@ export async function executeOperation(
         const probe = await fetchFn(url, { mode: 'no-cors' })
         if (probe.type === 'opaque') throw corsError(url)
       } catch (probeError) {
-        if (probeError instanceof Error && probeError.name === 'ApiBridgeError') throw probeError
+        if (probeError instanceof Error && probeError.name === 'ApiInvokeError') throw probeError
       }
       throw networkError(url)
     }

@@ -1,7 +1,7 @@
 /**
  * Flat auth configuration for CLI consumers.
  * Converts simple config objects (from CLI args, env vars, config files)
- * into api-bridge-rt's discriminated Auth union.
+ * into api-invoke's discriminated Auth union.
  */
 
 import type { Auth } from './types'
@@ -25,7 +25,7 @@ export interface AuthConfig {
 }
 
 /**
- * Convert a flat AuthConfig to api-bridge-rt's Auth discriminated union.
+ * Convert a flat AuthConfig to api-invoke's Auth discriminated union.
  * Returns undefined if required credentials are missing or type is NONE.
  */
 export function toAuth(config: AuthConfig): Auth | undefined {

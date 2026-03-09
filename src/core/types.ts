@@ -1,5 +1,5 @@
 /**
- * Core types for api-bridge-rt.
+ * Core types for api-invoke.
  * Spec-agnostic — these work with any API format (OpenAPI, raw URL, future adapters).
  * All enums use `as const` objects for autocomplete + extensibility.
  */

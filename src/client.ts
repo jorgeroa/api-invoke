@@ -1,5 +1,5 @@
 /**
- * Main client — the public API for api-bridge-rt.
+ * Main client — the public API for api-invoke.
  * Supports three tiers: full spec, raw URL, and zero-spec execution.
  */
 
@@ -33,7 +33,7 @@ function isSpecUrl(url: string): boolean {
   )
 }
 
-export class ApiBridgeClient {
+export class ApiInvokeClient {
   readonly api: ParsedAPI
   private auth: Auth | undefined
   private middleware: Middleware[]
@@ -113,7 +113,7 @@ export class ApiBridgeClient {
 export async function createClient(
   input: string | object,
   options: ClientOptions = {},
-): Promise<ApiBridgeClient> {
+): Promise<ApiInvokeClient> {
   let api: ParsedAPI
 
   if (typeof input === 'string') {
@@ -146,9 +146,9 @@ export async function createClient(
   return finalize(api, options)
 }
 
-async function finalize(api: ParsedAPI, options: ClientOptions): Promise<ApiBridgeClient> {
+async function finalize(api: ParsedAPI, options: ClientOptions): Promise<ApiInvokeClient> {
   if (options.enricher) {
     api = await Promise.resolve(options.enricher.enrichAPI(api))
   }
-  return new ApiBridgeClient(api, options)
+  return new ApiInvokeClient(api, options)
 }
