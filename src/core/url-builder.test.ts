@@ -34,9 +34,9 @@ describe('buildUrl', () => {
     expect(url).toBe('https://api.example.com/users/42')
   })
 
-  it('handles baseUrl with path prefix', () => {
+  it('preserves baseUrl path prefix', () => {
     const url = buildUrl('https://api.example.com/v1', baseOp, { id: '42' })
-    expect(url).toBe('https://api.example.com/users/42')
+    expect(url).toBe('https://api.example.com/v1/users/42')
   })
 })
 

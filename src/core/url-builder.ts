@@ -28,7 +28,7 @@ export function buildUrl(
   // Join base URL and path, avoiding double slashes
   const fullBase = baseUrl.replace(/\/$/, '')
   const fullPath = path.startsWith('/') ? path : `/${path}`
-  const url = new URL(fullPath, fullBase.includes('://') ? fullBase : `https://${fullBase}`)
+  const url = new URL(`${fullBase}${fullPath}`)
 
   // Append query parameters
   for (const param of operation.parameters) {
