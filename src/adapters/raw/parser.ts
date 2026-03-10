@@ -1,5 +1,6 @@
 /**
- * Raw URL adapter — creates a ParsedAPI from plain URLs (no spec).
+ * Raw URL adapter — creates a ParsedAPI from one or more plain URL endpoints (no spec).
+ * Supports custom methods, IDs, and summaries per endpoint.
  * Auto-detects query parameters as configurable operation parameters.
  */
 
@@ -14,8 +15,8 @@ export interface RawEndpoint {
 }
 
 /**
- * Parse a raw URL into a ParsedAPI with a single "query" operation.
- * Query parameters from the URL become configurable parameters.
+ * Parse a raw URL into a ParsedAPI with a single operation.
+ * Delegates to parseRawUrls. Query parameters from the URL become configurable parameters.
  */
 export function parseRawUrl(url: string): ParsedAPI {
   return parseRawUrls([{ url }])
@@ -34,8 +35,14 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
   const firstParsed = new URL(endpoints[0].url)
   const baseUrl = firstParsed.origin
 
-  const operations: Operation[] = endpoints.map((ep, i) => {
+  const operations: Operation[] = endpoints.map((ep) => {
     const parsed = new URL(ep.url)
+
+    if (parsed.origin !== firstParsed.origin) {
+      throw new Error(
+        `All endpoints must share the same origin. Got "${parsed.origin}" but expected "${firstParsed.origin}"`
+      )
+    }
     const method = (ep.method ?? 'GET').toUpperCase()
     const pathname = parsed.pathname
 

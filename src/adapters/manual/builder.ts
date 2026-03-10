@@ -38,7 +38,7 @@ export type BodyDef = {
   contentType?: string
   required?: boolean
   properties?: Record<string, string | PropertyDef>
-  required_fields?: string[]
+  requiredFields?: string[]
 }
 
 export type PropertyDef = {
@@ -151,7 +151,7 @@ export class APIBuilder {
           type: 'object',
           raw: {},
           properties,
-          required: options.body.required_fields,
+          required: options.body.requiredFields,
         },
       }
     }
@@ -172,13 +172,19 @@ export class APIBuilder {
   }
 
   build(): ParsedAPI {
+    if (!this._baseUrl) {
+      throw new Error('baseUrl is required. Call .baseUrl("https://...") before .build().')
+    }
+    if (this._operations.length === 0) {
+      throw new Error('At least one endpoint is required. Call .get(), .post(), etc. before .build().')
+    }
     return {
       title: this._title,
       version: this._version,
       baseUrl: this._baseUrl,
-      operations: this._operations,
+      operations: [...this._operations],
       authSchemes: [],
-      specFormat: SpecFormat.RAW_URL,
+      specFormat: SpecFormat.MANUAL,
     }
   }
 }

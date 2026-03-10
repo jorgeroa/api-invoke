@@ -56,7 +56,7 @@ export async function executeOperation(
   let url = buildUrl(baseUrl, operation, args)
   const method = operation.method.toUpperCase()
 
-  const accept = options.accept ?? operation.responseContentType ?? 'application/json'
+  const accept = options.accept || operation.responseContentType || 'application/json'
   const headers: Record<string, string> = {
     'Accept': accept,
     ...extractHeaderParams(operation.parameters, args),
@@ -193,18 +193,26 @@ export async function executeOperation(
   // Parse response body (always, so it's available even for error responses)
   let data: unknown
   const contentType = response.headers.get('content-type') || ''
-  if (contentType.includes('application/json')) {
+  if (contentType.includes('application/json') || contentType.includes('+json')) {
+    const cloned = response.clone()
     try {
       data = await response.json()
     } catch {
       if (options.throwOnHttpError !== false) throw parseError(url)
-      data = null
+      data = await cloned.text()
     }
   } else if (isBinaryContentType(contentType)) {
-    data = await response.arrayBuffer()
-  } else if (contentType.includes('xml') || contentType.includes('text/xml')) {
-    // Return XML as text — consumers can parse with their preferred XML library
-    data = await response.text()
+    try {
+      data = await response.arrayBuffer()
+    } catch {
+      throw parseError(url)
+    }
+  } else if (contentType.includes('/xml') || contentType.endsWith('+xml')) {
+    try {
+      data = await response.text()
+    } catch {
+      throw parseError(url)
+    }
   } else {
     const text = await response.text()
     // Try JSON parsing for responses without proper content-type

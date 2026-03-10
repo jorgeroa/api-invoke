@@ -301,14 +301,14 @@ function extractResponseContentType(
     if (types.includes('application/json')) return 'application/json'
     return types[0]
   } else {
-    // Swagger 2.0: check operation-level `produces` or top-level `produces`
+    // Swagger 2.0: check operation-level `produces`
     const op = operation as OpenAPIV2.OperationObject
     const produces = op.produces
     if (produces && produces.length > 0) {
       if (produces.includes('application/json')) return 'application/json'
       return produces[0]
     }
-    return undefined // Will use top-level produces or default
+    return undefined // No operation-level produces; caller falls back to default Accept header
   }
 }
 

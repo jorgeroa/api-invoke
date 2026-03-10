@@ -231,9 +231,9 @@ describe('e2e: error handling', () => {
 
   it('falls back to raw URL for non-spec URL', async () => {
     const client = await createClient('https://httpbin.org/get')
-    // Should create a raw client with a single "query" operation
+    // Should create a raw client with a single operation
     expect(client.api.operations.length).toBe(1)
-    expect(client.api.operations[0].id).toBe('query')
+    expect(client.api.operations[0].id).toBe('get_get')
   }, TIMEOUT)
 })
 

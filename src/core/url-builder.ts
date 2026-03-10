@@ -35,7 +35,7 @@ export function buildUrl(
   for (const param of operation.parameters) {
     if (param.in === ParamLocation.QUERY) {
       const value = args[param.name] ?? param.schema.default
-      if (value !== undefined) {
+      if (value !== undefined && value !== null) {
         serializeQueryParam(url, param.name, value)
       }
     }
@@ -77,18 +77,24 @@ export function extractHeaderParams(
 
 /**
  * Serialize a query parameter value onto a URL.
- * Arrays use comma-separated format (OpenAPI "form" style, non-exploded).
- * Objects use key=value comma-separated format (OpenAPI "deepObject" is not yet supported).
+ * Arrays use comma-separated format (OpenAPI "form" style, explode=false).
+ * Objects use comma-separated key,value pairs (OpenAPI "form" style, explode=false).
+ * DeepObject style (e.g. filter[key]=value) is not yet supported.
  */
 function serializeQueryParam(url: URL, name: string, value: unknown): void {
   if (Array.isArray(value)) {
-    // Comma-separated: tags=a,b,c
     url.searchParams.set(name, value.map(String).join(','))
   } else if (typeof value === 'object' && value !== null) {
-    // Flatten object: key=value comma pairs
     const pairs = Object.entries(value as Record<string, unknown>)
       .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k},${v}`)
+      .map(([k, v]) => {
+        if (typeof v === 'object' && v !== null) {
+          throw new Error(
+            `Cannot serialize nested object for query parameter "${name}.${k}". Only flat key-value objects are supported.`
+          )
+        }
+        return `${k},${v}`
+      })
     url.searchParams.set(name, pairs.join(','))
   } else {
     url.searchParams.set(name, String(value))

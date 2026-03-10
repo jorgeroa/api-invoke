@@ -73,7 +73,7 @@ describe('defineAPI builder', () => {
             name: 'string',
             age: { type: 'number', description: 'User age' },
           },
-          required_fields: ['name'],
+          requiredFields: ['name'],
         },
       })
       .build()
@@ -113,9 +113,27 @@ describe('defineAPI builder', () => {
     const api = defineAPI('Test')
       .version('2.0.0')
       .baseUrl('https://api.example.com')
+      .get('/health')
       .build()
 
     expect(api.version).toBe('2.0.0')
+  })
+
+  it('throws when baseUrl is not set', () => {
+    expect(() => defineAPI('Test').get('/users').build()).toThrow('baseUrl is required')
+  })
+
+  it('throws when no endpoints are added', () => {
+    expect(() => defineAPI('Test').baseUrl('https://api.example.com').build()).toThrow('At least one endpoint')
+  })
+
+  it('snapshots operations so post-build mutations do not leak', () => {
+    const builder = defineAPI('Test')
+      .baseUrl('https://api.example.com')
+      .get('/users')
+    const api = builder.build()
+    builder.get('/posts')
+    expect(api.operations).toHaveLength(1)
   })
 
   it('supports PATCH method', () => {

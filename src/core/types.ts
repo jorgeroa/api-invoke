@@ -38,6 +38,7 @@ export const SpecFormat = {
   OPENAPI_3: 'openapi-3',
   OPENAPI_2: 'openapi-2',
   RAW_URL: 'raw-url',
+  MANUAL: 'manual',
 } as const
 export type SpecFormat = (typeof SpecFormat)[keyof typeof SpecFormat]
 
@@ -64,7 +65,7 @@ export interface Operation {
   requestBody?: RequestBody
   responseSchema?: unknown
   /** Primary response content type from the spec (e.g. 'application/json', 'application/xml'). */
-  responseContentType?: string
+  responseContentType?: ContentType | string
   tags: string[]
 }
 
