@@ -201,8 +201,9 @@ export async function executeOperation(
     const cloned = response.clone()
     try {
       data = await response.json()
-    } catch {
+    } catch (jsonError) {
       if (options.throwOnHttpError !== false) throw parseError(url)
+      console.warn('[api-invoke] JSON parse failed, falling back to text:', jsonError)
       try {
         data = await cloned.text()
       } catch (textError) {

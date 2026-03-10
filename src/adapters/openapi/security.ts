@@ -37,6 +37,7 @@ function mapSingleScheme(
     if (apiKeyScheme.in === ParamLocation.COOKIE) {
       return { name, authType: null, metadata: {}, description: `${baseDescription} (unsupported: cookie-based auth)` }
     }
+    return { name, authType: null, metadata: {}, description: `${baseDescription} (unsupported: apiKey in "${apiKeyScheme.in}")` }
   }
 
   // http type (OpenAPI 3.x only)
@@ -48,6 +49,7 @@ function mapSingleScheme(
     if (httpScheme.scheme === AuthType.BASIC) {
       return { name, authType: AuthType.BASIC, metadata: {}, description: baseDescription }
     }
+    return { name, authType: null, metadata: {}, description: `${baseDescription} (unsupported: HTTP scheme "${httpScheme.scheme}")` }
   }
 
   // basic type (Swagger 2.0 only)
