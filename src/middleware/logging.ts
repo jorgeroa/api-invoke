@@ -21,7 +21,7 @@ export interface LoggingOptions {
   prefix?: string
 }
 
-const DEFAULT_SENSITIVE_HEADERS = ['authorization', 'x-api-key']
+const DEFAULT_SENSITIVE_HEADERS = ['authorization', 'x-api-key', 'cookie']
 const DEFAULT_SENSITIVE_PARAMS = ['api_key', 'apikey', 'key', 'token', 'access_token']
 
 /**

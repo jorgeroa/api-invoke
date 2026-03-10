@@ -36,6 +36,7 @@ export {
 // Errors
 export {
   ApiInvokeError,
+  API_INVOKE_ERROR_NAME,
   ErrorKind,
   corsError,
   networkError,

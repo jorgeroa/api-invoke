@@ -183,6 +183,13 @@ describe('extractCookieParams', () => {
     expect(extractCookieParams(params, { q: 'test' })).toBeUndefined()
   })
 
+  it('encodes special characters in cookie values', () => {
+    const params = [
+      { name: 'data', in: ParamLocation.COOKIE, required: false, description: '', schema: { type: 'string' } },
+    ]
+    expect(extractCookieParams(params, { data: 'val=ue;stuff' })).toBe('data=val%3Due%3Bstuff')
+  })
+
   it('uses default values for cookie params', () => {
     const params = [
       { name: 'lang', in: ParamLocation.COOKIE, required: false, description: '', schema: { type: 'string', default: 'en' } },

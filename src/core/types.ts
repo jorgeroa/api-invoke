@@ -151,6 +151,13 @@ export type Auth =
 
 // === Execution ===
 
+export interface BuiltRequest {
+  method: HttpMethod | string
+  url: string
+  headers: Record<string, string>
+  body?: string
+}
+
 /** HTTP-response error kinds for ExecutionResult (non-throwing mode). Client-side errors (CORS, NETWORK, TIMEOUT) always throw regardless of throwOnHttpError. */
 export type ResultErrorKind = typeof ErrorKind.AUTH | typeof ErrorKind.RATE_LIMIT | typeof ErrorKind.HTTP
 
@@ -160,7 +167,7 @@ export interface ExecutionResult {
   /** Response content type (e.g. 'application/json', 'text/xml'). */
   contentType: string
   headers: Record<string, string>
-  request: { method: HttpMethod | string; url: string; headers: Record<string, string>; body?: string }
+  request: BuiltRequest
   elapsedMs: number
   /** Set when throwOnHttpError is false and the response is an error. Allows programmatic error classification without throwing. */
   errorKind?: ResultErrorKind

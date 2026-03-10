@@ -34,6 +34,18 @@ describe('logging', () => {
     expect(output).toContain('page=1')
   })
 
+  it('masks Cookie header by default', () => {
+    const log = vi.fn()
+    const mw = logging({ log })
+    mw.onRequest!('https://api.example.com/users', {
+      method: HttpMethod.GET,
+      headers: { [HeaderName.COOKIE]: 'session_id=secret-session-token' },
+    })
+    const output = log.mock.calls[0][0]
+    expect(output).not.toContain('secret-session-token')
+    expect(output).toContain('***')
+  })
+
   it('masks custom sensitive headers', () => {
     const log = vi.fn()
     const mw = logging({ log, sensitiveHeaders: ['X-Custom-Secret'] })

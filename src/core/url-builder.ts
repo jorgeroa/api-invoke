@@ -1,6 +1,6 @@
 /**
- * URL construction utilities.
- * Handles path parameter interpolation, query params, and slash normalization.
+ * URL and parameter construction utilities.
+ * Handles path parameter interpolation, query params, header params, cookie params, and slash normalization.
  */
 
 import type { Operation, Parameter } from './types'

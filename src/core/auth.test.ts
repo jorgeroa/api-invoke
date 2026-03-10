@@ -38,6 +38,11 @@ describe('injectAuth', () => {
     expect(result.headers[HeaderName.COOKIE]).toBe('existing=val; session_id=abc123')
   })
 
+  it('encodes special characters in cookie values', () => {
+    const result = injectAuth('https://api.example.com', {}, { type: AuthType.COOKIE, name: 'data', value: 'val=ue;stuff' })
+    expect(result.headers[HeaderName.COOKIE]).toBe('data=val%3Due%3Bstuff')
+  })
+
   it('composes multiple auth schemes', () => {
     const result = injectAuth('https://api.example.com', {}, [
       { type: AuthType.BEARER, token: 'mytoken' },
@@ -67,5 +72,15 @@ describe('maskAuth', () => {
 
   it('masks oauth2', () => {
     expect(maskAuth({ type: AuthType.OAUTH2, accessToken: 'token123' })).toBe('OAuth2 ***')
+  })
+
+  it('masks short bearer tokens without exposing them', () => {
+    expect(maskAuth({ type: AuthType.BEARER, token: 'abc' })).toBe('Bearer ***')
+    expect(maskAuth({ type: AuthType.BEARER, token: '' })).toBe('Bearer ***')
+    expect(maskAuth({ type: AuthType.BEARER, token: 'abcd' })).toBe('Bearer ***')
+  })
+
+  it('shows preview only for tokens longer than 4 chars', () => {
+    expect(maskAuth({ type: AuthType.BEARER, token: 'abcde' })).toBe('Bearer abcd***')
   })
 })

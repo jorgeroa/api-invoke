@@ -3,7 +3,7 @@
  * Pluggable: uses global fetch by default, can be overridden.
  */
 
-import type { Auth, ExecutionResult, Middleware, Operation } from './types'
+import type { Auth, BuiltRequest, ExecutionResult, Middleware, Operation } from './types'
 import { ContentType, HeaderName, HttpMethod } from './types'
 import { buildUrl, extractHeaderParams, extractCookieParams } from './url-builder'
 import { injectAuth } from './auth'
@@ -45,12 +45,7 @@ export interface ExecuteOptions extends BuildRequestOptions {
   redirect?: RequestInit['redirect']
 }
 
-export interface BuiltRequest {
-  method: HttpMethod | string
-  url: string
-  headers: Record<string, string>
-  body?: string
-}
+export type { BuiltRequest }
 
 /**
  * Build a request without executing it (dry-run / preview).

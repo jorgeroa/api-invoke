@@ -21,7 +21,7 @@ export function injectAuth(
   auth: Auth | Auth[],
 ): AuthenticatedRequest {
   if (Array.isArray(auth)) {
-    // Apply auth schemes in order. Later entries override earlier ones for the same header/param.
+    // Apply auth schemes in order. Later entries override earlier ones for the same header (e.g. Authorization), but cookie auth appends.
     let result: AuthenticatedRequest = { url, headers: { ...headers } }
     for (const a of auth) {
       result = injectAuth(result.url, result.headers, a)
@@ -74,8 +74,8 @@ export function injectAuth(
 export function maskAuth(auth: Auth): string {
   switch (auth.type) {
     case AuthType.BEARER: {
-      const preview = auth.token.substring(0, 4)
-      return `Bearer ${preview}***`
+      if (auth.token.length <= 4) return 'Bearer ***'
+      return `Bearer ${auth.token.substring(0, 4)}***`
     }
     case AuthType.BASIC:
       return `Basic ${auth.username}:***`

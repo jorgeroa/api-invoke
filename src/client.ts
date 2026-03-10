@@ -176,22 +176,31 @@ async function tryContentDetection(url: string, options: ClientOptions): Promise
   let response: Response
   try {
     response = await fetchFn(url)
-  } catch {
-    // Network failure — raw URL mode is acceptable
-    return parseRawUrl(url)
+  } catch (error) {
+    // Only fall back for network-class errors; re-throw programming errors
+    if (error instanceof TypeError || (error instanceof DOMException && error.name === 'AbortError')) {
+      return parseRawUrl(url)
+    }
+    throw error
   }
 
   if (!response.ok) {
     return parseRawUrl(url)
   }
 
-  const text = await response.text()
+  let text: string
+  try {
+    text = await response.text()
+  } catch {
+    // Body read failed (e.g. network interruption during streaming)
+    return parseRawUrl(url)
+  }
 
   let obj: Record<string, unknown>
   try {
     obj = JSON.parse(text) as Record<string, unknown>
   } catch {
-    // Not JSON — not a spec
+    // Not JSON (YAML is only detected by URL pattern, not content probe)
     return parseRawUrl(url)
   }
 
