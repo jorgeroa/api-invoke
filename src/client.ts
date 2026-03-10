@@ -196,14 +196,19 @@ async function tryContentDetection(url: string, options: ClientOptions): Promise
     return parseRawUrl(url)
   }
 
-  let obj: Record<string, unknown>
+  let parsed: unknown
   try {
-    obj = JSON.parse(text) as Record<string, unknown>
+    parsed = JSON.parse(text)
   } catch {
     // Not JSON (YAML is only detected by URL pattern, not content probe)
     return parseRawUrl(url)
   }
 
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return parseRawUrl(url)
+  }
+
+  const obj = parsed as Record<string, unknown>
   if (isSpecContent(obj)) {
     // Content IS a spec — let parse errors propagate
     return parseOpenAPISpec(obj, { specUrl: url })

@@ -52,6 +52,24 @@ describe('tryContentDetection', () => {
     expect(client.operations.length).toBe(1)
   })
 
+  it('falls back to raw URL for JSON null response', async () => {
+    const fetch = mockFetchResponse('null')
+    const client = await createClient('https://api.example.com/v1/users', { fetch })
+    expect(client.operations.length).toBe(1)
+  })
+
+  it('falls back to raw URL for JSON array response', async () => {
+    const fetch = mockFetchResponse('[1, 2, 3]')
+    const client = await createClient('https://api.example.com/v1/users', { fetch })
+    expect(client.operations.length).toBe(1)
+  })
+
+  it('falls back to raw URL for JSON primitive response', async () => {
+    const fetch = mockFetchResponse('"just a string"')
+    const client = await createClient('https://api.example.com/v1/users', { fetch })
+    expect(client.operations.length).toBe(1)
+  })
+
   it('falls back to raw URL for non-JSON response', async () => {
     const fetch = mockFetchResponse('<html>Not JSON</html>', { contentType: 'text/html' })
     const client = await createClient('https://api.example.com/v1/users', { fetch })
