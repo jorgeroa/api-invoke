@@ -286,11 +286,12 @@ function extractResponseContentType(
   operation: OpenAPIV3.OperationObject | OpenAPIV2.OperationObject,
   isOpenAPI3: boolean,
 ): string | undefined {
-  // Find the first success response (200, 201, or default)
+  // Determine response content type from the first available success response
   const responses = operation.responses
   if (!responses) return undefined
 
-  const successResponse = responses['200'] ?? responses['201'] ?? responses['default']
+  const successResponse = responses['200'] ?? responses['201'] ?? responses['202']
+    ?? responses['2XX'] ?? responses['default']
   if (!successResponse) return undefined
 
   if (isOpenAPI3) {

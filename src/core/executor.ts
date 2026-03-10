@@ -202,7 +202,11 @@ export async function executeOperation(
       data = await response.json()
     } catch {
       if (options.throwOnHttpError !== false) throw parseError(url)
-      data = await cloned.text()
+      try {
+        data = await cloned.text()
+      } catch {
+        data = null
+      }
     }
   } else if (isBinaryContentType(contentType)) {
     try {
@@ -268,6 +272,7 @@ export async function executeRaw(
     fetch?: typeof globalThis.fetch
     timeoutMs?: number
     signal?: AbortSignal
+    accept?: string
   } = {},
 ): Promise<ExecutionResult> {
   // Create a synthetic operation for the raw request
@@ -285,6 +290,7 @@ export async function executeRaw(
     fetch: options.fetch,
     timeoutMs: options.timeoutMs,
     signal: options.signal,
+    accept: options.accept,
   })
 }
 

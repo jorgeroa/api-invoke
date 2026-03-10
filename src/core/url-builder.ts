@@ -93,7 +93,12 @@ function serializeQueryParam(url: URL, name: string, value: unknown): void {
             `Cannot serialize nested object for query parameter "${name}.${k}". Only flat key-value objects are supported.`
           )
         }
-        return `${k},${v}`
+        if (typeof v === 'symbol' || typeof v === 'function') {
+          throw new Error(
+            `Cannot serialize ${typeof v} value for query parameter "${name}.${k}". Use a string or number.`
+          )
+        }
+        return `${k},${String(v)}`
       })
     url.searchParams.set(name, pairs.join(','))
   } else {

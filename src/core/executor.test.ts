@@ -348,7 +348,7 @@ describe('text/plain content-type handling', () => {
 
 // === application/xml ===
 
-describe('application/xml handling', () => {
+describe('XML handling', () => {
   it('returns application/xml as text', async () => {
     const responseHeaders = new Headers({ 'content-type': 'application/xml' })
     const fetch = vi.fn().mockResolvedValue(
@@ -359,6 +359,18 @@ describe('application/xml handling', () => {
     )
     expect(result.contentType).toBe('application/xml')
     expect(result.data).toBe('<root><item/></root>')
+  })
+
+  it('returns +xml variant as text', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'application/atom+xml' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('<feed/>', { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.contentType).toBe('application/atom+xml')
+    expect(result.data).toBe('<feed/>')
   })
 })
 
@@ -374,6 +386,16 @@ describe('JSON parse failure fallback', () => {
       baseUrl, { ...getOp, parameters: [] }, {}, { fetch, throwOnHttpError: false }
     )
     expect(result.data).toBe('not valid json {{{')
+  })
+
+  it('throws parseError when JSON parse fails and throwOnHttpError is true (default)', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'application/json' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('not valid json {{{', { status: 200, headers: responseHeaders })
+    )
+    await expect(
+      executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
+    ).rejects.toMatchObject({ kind: 'parse' })
   })
 })
 
@@ -423,5 +445,19 @@ describe('throwOnHttpError', () => {
     await expect(
       executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
     ).rejects.toMatchObject({ kind: 'auth' })
+  })
+
+  it('throws auth error with correct kind on 403', async () => {
+    const fetch = mockFetch(403, { error: 'forbidden' })
+    await expect(
+      executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
+    ).rejects.toMatchObject({ kind: 'auth', status: 403 })
+  })
+
+  it('throws rate-limit error on 429', async () => {
+    const fetch = mockFetch(429, { error: 'too many requests' })
+    await expect(
+      executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
+    ).rejects.toMatchObject({ kind: 'rate-limit', retryable: true })
   })
 })

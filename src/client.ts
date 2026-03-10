@@ -90,6 +90,7 @@ export class ApiInvokeClient {
   async execute(
     operationId: string,
     args: Record<string, unknown> = {},
+    options?: { accept?: string; throwOnHttpError?: boolean },
   ): Promise<ExecutionResult> {
     const operation = this.findOperation(operationId)
     if (!operation) {
@@ -101,6 +102,8 @@ export class ApiInvokeClient {
       middleware: this.middleware,
       fetch: this.fetchFn,
       timeoutMs: this.timeoutMs,
+      accept: options?.accept,
+      throwOnHttpError: options?.throwOnHttpError,
     })
   }
 

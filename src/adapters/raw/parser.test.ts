@@ -83,4 +83,11 @@ describe('parseRawUrls', () => {
       { url: 'not-a-url' },
     ])).toThrow('Invalid URL')
   })
+
+  it('throws for invalid URL in non-first endpoint', () => {
+    expect(() => parseRawUrls([
+      { url: 'https://api.example.com/users' },
+      { url: 'not-a-url' },
+    ])).toThrow('Invalid URL')
+  })
 })
