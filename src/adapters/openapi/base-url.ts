@@ -7,12 +7,25 @@ import type { OpenAPIV3, OpenAPIV2 } from 'openapi-types'
 
 /**
  * Extract base URL from OpenAPI 3.x servers array.
+ * Interpolates server variables with their defaults.
  * Returns '' for relative URLs (must be resolved by the consumer with spec URL).
  */
 export function extractOpenAPI3BaseUrl(api: OpenAPIV3.Document): string {
-  const url = api.servers?.[0]?.url ?? ''
+  const server = api.servers?.[0]
+  if (!server) return ''
+
+  let url = server.url
   // Relative server URLs (e.g. "/api/v1") can't be used as absolute base URLs
   if (url && !url.startsWith('http')) return ''
+
+  // Interpolate server variables with defaults
+  if (server.variables) {
+    for (const [name, variable] of Object.entries(server.variables)) {
+      const value = variable.default ?? variable.enum?.[0] ?? name
+      url = url.replace(`{${name}}`, String(value))
+    }
+  }
+
   return url
 }
 

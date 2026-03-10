@@ -19,6 +19,8 @@ export class ApiInvokeError extends Error {
   readonly status?: number
   readonly suggestion: string
   readonly retryable: boolean
+  /** Response body from the API (when available). Contains structured error details. */
+  readonly responseBody?: unknown
 
   constructor(opts: {
     kind: ErrorKind | string
@@ -26,6 +28,7 @@ export class ApiInvokeError extends Error {
     suggestion: string
     retryable?: boolean
     status?: number
+    responseBody?: unknown
   }) {
     super(opts.message)
     this.name = 'ApiInvokeError'
@@ -33,6 +36,7 @@ export class ApiInvokeError extends Error {
     this.suggestion = opts.suggestion
     this.retryable = opts.retryable ?? false
     this.status = opts.status
+    this.responseBody = opts.responseBody
   }
 }
 
@@ -54,7 +58,7 @@ export function networkError(url: string): ApiInvokeError {
   })
 }
 
-export function authError(url: string, status: 401 | 403): ApiInvokeError {
+export function authError(url: string, status: 401 | 403, responseBody?: unknown): ApiInvokeError {
   return new ApiInvokeError({
     kind: ErrorKind.AUTH,
     message: status === 401
@@ -65,10 +69,11 @@ export function authError(url: string, status: 401 | 403): ApiInvokeError {
       : 'Your credentials are valid but you lack permission for this resource.',
     retryable: false,
     status,
+    responseBody,
   })
 }
 
-export function httpError(url: string, status: number, statusText: string): ApiInvokeError {
+export function httpError(url: string, status: number, statusText: string, responseBody?: unknown): ApiInvokeError {
   const retryable = status === 429 || status >= 500
   const kind = status === 429 ? ErrorKind.RATE_LIMIT : ErrorKind.HTTP
 
@@ -89,6 +94,7 @@ export function httpError(url: string, status: number, statusText: string): ApiI
     suggestion,
     retryable,
     status,
+    responseBody,
   })
 }
 

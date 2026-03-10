@@ -57,7 +57,37 @@ function mapSingleScheme(
 
   // oauth2
   if (scheme.type === 'oauth2') {
-    return { name, authType: null, metadata: {}, description: `${baseDescription} (unsupported: OAuth 2.0 requires browser-based authorization)` }
+    const metadata: Record<string, string> = {}
+
+    // OpenAPI 3.x: flows object
+    if ('flows' in scheme) {
+      const oauth3 = scheme as OpenAPIV3.OAuth2SecurityScheme
+      const flow = oauth3.flows.authorizationCode
+        ?? oauth3.flows.clientCredentials
+        ?? oauth3.flows.implicit
+        ?? oauth3.flows.password
+      if (flow) {
+        if ('authorizationUrl' in flow && flow.authorizationUrl) metadata.authorizationUrl = flow.authorizationUrl
+        if ('tokenUrl' in flow && flow.tokenUrl) metadata.tokenUrl = flow.tokenUrl
+        if (flow.refreshUrl) metadata.refreshUrl = flow.refreshUrl
+        if (flow.scopes && Object.keys(flow.scopes).length > 0) {
+          metadata.scopes = Object.keys(flow.scopes).join(',')
+        }
+      }
+    }
+
+    // Swagger 2.0: flat fields (use generic access since union types vary)
+    if ('flow' in scheme) {
+      const oauth2 = scheme as unknown as Record<string, unknown>
+      if (typeof oauth2.authorizationUrl === 'string') metadata.authorizationUrl = oauth2.authorizationUrl
+      if (typeof oauth2.tokenUrl === 'string') metadata.tokenUrl = oauth2.tokenUrl
+      const scopes = oauth2.scopes as Record<string, string> | undefined
+      if (scopes && Object.keys(scopes).length > 0) {
+        metadata.scopes = Object.keys(scopes).join(',')
+      }
+    }
+
+    return { name, authType: AuthType.OAUTH2, metadata, description: baseDescription }
   }
 
   // openIdConnect

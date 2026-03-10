@@ -8,6 +8,7 @@ import { ContentType, HttpMethod } from './types'
 import { buildUrl, extractHeaderParams } from './url-builder'
 import { injectAuth } from './auth'
 import {
+  ErrorKind,
   authError,
   corsError,
   httpError,
@@ -244,13 +245,22 @@ export async function executeOperation(
     elapsedMs,
   }
 
-  // Check for HTTP errors (skip when caller wants all results)
+  // Check for HTTP errors
   if (options.throwOnHttpError !== false) {
     if (response.status === 401 || response.status === 403) {
-      throw authError(url, response.status as 401 | 403)
+      throw authError(url, response.status as 401 | 403, data)
     }
     if (!response.ok) {
-      throw httpError(url, response.status, response.statusText)
+      throw httpError(url, response.status, response.statusText, data)
+    }
+  } else if (!response.ok) {
+    // Non-throwing mode: classify the error for programmatic handling
+    if (response.status === 401 || response.status === 403) {
+      result.errorKind = ErrorKind.AUTH
+    } else if (response.status === 429) {
+      result.errorKind = ErrorKind.RATE_LIMIT
+    } else {
+      result.errorKind = ErrorKind.HTTP
     }
   }
 

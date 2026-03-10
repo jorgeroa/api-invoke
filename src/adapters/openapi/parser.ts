@@ -23,6 +23,19 @@ import { deriveBaseUrl } from '../../core/url-builder'
 const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
 
 /**
+ * Normalize OpenAPI 3.1 type arrays (e.g. ["string", "null"]) to a single type string.
+ * Picks the first non-null type, or falls back to the provided default.
+ */
+function normalizeType(type: unknown, fallback = 'string'): string {
+  if (Array.isArray(type)) {
+    const nonNull = type.filter((t: string) => t !== 'null')
+    return nonNull[0] ?? fallback
+  }
+  if (typeof type === 'string') return type
+  return fallback
+}
+
+/**
  * Parse an OpenAPI/Swagger spec into a ParsedAPI.
  *
  * @param specUrlOrObject - URL string or parsed spec object
@@ -138,7 +151,7 @@ function parseParameter(
     const p = param as OpenAPIV3.ParameterObject
     const s = p.schema as OpenAPIV3.SchemaObject | undefined
     schema = {
-      type: s?.type?.toString() ?? 'string',
+      type: normalizeType(s?.type),
       format: s?.format,
       enum: s?.enum,
       default: s?.default,
@@ -241,7 +254,7 @@ function extractRequestBody(
 
 function flattenSchema(schema: OpenAPIV3.SchemaObject): RequestBodySchema {
   const result: RequestBodySchema = {
-    type: (schema.type as string) ?? 'object',
+    type: normalizeType(schema.type, 'object'),
     raw: schema,
   }
 
@@ -251,9 +264,10 @@ function flattenSchema(schema: OpenAPIV3.SchemaObject): RequestBodySchema {
 
     for (const [name, propSchema] of Object.entries(schema.properties)) {
       const prop = propSchema as OpenAPIV3.SchemaObject
-      const isNested = prop.type === 'object' || prop.type === 'array'
+      const propType = normalizeType(prop.type)
+      const isNested = propType === 'object' || propType === 'array'
       result.properties[name] = {
-        type: (prop.type as string) ?? 'string',
+        type: propType,
         format: prop.format,
         description: prop.description,
         enum: prop.enum,
@@ -271,14 +285,18 @@ function extractResponseSchema(
   operation: OpenAPIV3.OperationObject | OpenAPIV2.OperationObject,
   isOpenAPI3: boolean,
 ): unknown {
-  const response200 = operation.responses?.['200']
-  if (!response200) return undefined
+  const responses = operation.responses
+  if (!responses) return undefined
+
+  // Try success statuses in order, then default
+  const successResponse = responses['200'] ?? responses['201'] ?? responses['default']
+  if (!successResponse) return undefined
 
   if (isOpenAPI3) {
-    const resp = response200 as OpenAPIV3.ResponseObject
+    const resp = successResponse as OpenAPIV3.ResponseObject
     return resp.content?.['application/json']?.schema
   } else {
-    return (response200 as OpenAPIV2.ResponseObject).schema
+    return (successResponse as OpenAPIV2.ResponseObject).schema
   }
 }
 

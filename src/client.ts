@@ -90,7 +90,7 @@ export class ApiInvokeClient {
   async execute(
     operationId: string,
     args: Record<string, unknown> = {},
-    options?: { accept?: string; throwOnHttpError?: boolean },
+    options?: { auth?: Auth; accept?: string; throwOnHttpError?: boolean },
   ): Promise<ExecutionResult> {
     const operation = this.findOperation(operationId)
     if (!operation) {
@@ -98,7 +98,7 @@ export class ApiInvokeClient {
     }
 
     return executeOperation(this.api.baseUrl, operation, args, {
-      auth: this.auth,
+      auth: options?.auth ?? this.auth,
       middleware: this.middleware,
       fetch: this.fetchFn,
       timeoutMs: this.timeoutMs,
