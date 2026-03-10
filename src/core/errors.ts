@@ -19,7 +19,7 @@ export class ApiInvokeError extends Error {
   readonly status?: number
   readonly suggestion: string
   readonly retryable: boolean
-  /** Response body from the API (when available). Contains structured error details. */
+  /** Response body from the API (when available). May be parsed JSON, a string, or binary data depending on the response content type. */
   readonly responseBody?: unknown
 
   constructor(opts: {

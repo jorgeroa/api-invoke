@@ -42,6 +42,30 @@ describe('extractOpenAPI3BaseUrl', () => {
     } as unknown as OpenAPIV3.Document
     expect(extractOpenAPI3BaseUrl(api)).toBe('https://staging.example.com')
   })
+
+  it('returns empty when variable has no default and no enum', () => {
+    const api = {
+      servers: [{
+        url: 'https://{region}.example.com',
+        variables: {
+          region: {},
+        },
+      }],
+    } as unknown as OpenAPIV3.Document
+    expect(extractOpenAPI3BaseUrl(api)).toBe('')
+  })
+
+  it('replaces all occurrences of the same variable', () => {
+    const api = {
+      servers: [{
+        url: 'https://{region}.example.com/{region}/api',
+        variables: {
+          region: { default: 'us' },
+        },
+      }],
+    } as unknown as OpenAPIV3.Document
+    expect(extractOpenAPI3BaseUrl(api)).toBe('https://us.example.com/us/api')
+  })
 })
 
 describe('extractSwagger2BaseUrl', () => {

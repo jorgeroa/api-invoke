@@ -23,8 +23,9 @@ import { deriveBaseUrl } from '../../core/url-builder'
 const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
 
 /**
- * Normalize OpenAPI 3.1 type arrays (e.g. ["string", "null"]) to a single type string.
- * Picks the first non-null type, or falls back to the provided default.
+ * Normalize an OpenAPI schema type field to a single type string.
+ * Handles 3.1 type arrays (e.g. ["string", "null"]) by picking the first non-null entry,
+ * passes through plain strings, and falls back to the provided default for missing/unrecognized values.
  */
 function normalizeType(type: unknown, fallback = 'string'): string {
   if (Array.isArray(type)) {
@@ -253,12 +254,13 @@ function extractRequestBody(
 }
 
 function flattenSchema(schema: OpenAPIV3.SchemaObject): RequestBodySchema {
+  const normalizedType = normalizeType(schema.type, 'object')
   const result: RequestBodySchema = {
-    type: normalizeType(schema.type, 'object'),
+    type: normalizedType,
     raw: schema,
   }
 
-  if (schema.type === 'object' && schema.properties) {
+  if (normalizedType === 'object' && schema.properties) {
     result.properties = {}
     result.required = schema.required
 
@@ -288,8 +290,9 @@ function extractResponseSchema(
   const responses = operation.responses
   if (!responses) return undefined
 
-  // Try success statuses in order, then default
-  const successResponse = responses['200'] ?? responses['201'] ?? responses['default']
+  // Try success statuses in order (aligned with extractResponseContentType)
+  const successResponse = responses['200'] ?? responses['201'] ?? responses['202']
+    ?? responses['2XX'] ?? responses['default']
   if (!successResponse) return undefined
 
   if (isOpenAPI3) {

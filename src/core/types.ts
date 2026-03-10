@@ -4,6 +4,8 @@
  * All enums use `as const` objects for autocomplete + extensibility.
  */
 
+import { ErrorKind } from './errors'
+
 // === Constants ===
 
 export const HttpMethod = {
@@ -139,6 +141,9 @@ export type Auth =
 
 // === Execution ===
 
+/** Error kinds that can appear on ExecutionResult (subset of ErrorKind). */
+export type ResultErrorKind = typeof ErrorKind.AUTH | typeof ErrorKind.RATE_LIMIT | typeof ErrorKind.HTTP
+
 export interface ExecutionResult {
   status: number
   data: unknown
@@ -148,7 +153,7 @@ export interface ExecutionResult {
   request: { method: string; url: string; headers: Record<string, string> }
   elapsedMs: number
   /** Set when throwOnHttpError is false and the response is an error. Allows programmatic error classification without throwing. */
-  errorKind?: import('./errors').ErrorKind
+  errorKind?: ResultErrorKind
 }
 
 // === Enricher ===

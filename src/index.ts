@@ -17,6 +17,7 @@ export type {
   Auth,
   AuthScheme,
   ExecutionResult,
+  ResultErrorKind,
   ClientOptions,
   Middleware,
   Enricher,

@@ -78,4 +78,16 @@ describe('mapSecuritySchemes', () => {
     expect(schemes[0].metadata.tokenUrl).toBe('https://auth.example.com/token')
     expect(schemes[0].metadata.scopes).toBe('read')
   })
+
+  it('describes missing flow when OAuth2 has no recognized flows', () => {
+    const schemes = mapSecuritySchemes({
+      oauth2: {
+        type: 'oauth2',
+        flows: {},
+      } as never,
+    })
+    expect(schemes[0].authType).toBe('oauth2')
+    expect(schemes[0].description).toContain('no supported flow found')
+    expect(schemes[0].metadata).toEqual({})
+  })
 })

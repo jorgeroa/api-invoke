@@ -7,8 +7,8 @@ import type { OpenAPIV3, OpenAPIV2 } from 'openapi-types'
 
 /**
  * Extract base URL from OpenAPI 3.x servers array.
- * Interpolates server variables with their defaults.
- * Returns '' for relative URLs (must be resolved by the consumer with spec URL).
+ * Interpolates server variables using their default value or first enum value.
+ * Returns '' for relative URLs or when variables have no resolvable value.
  */
 export function extractOpenAPI3BaseUrl(api: OpenAPIV3.Document): string {
   const server = api.servers?.[0]
@@ -21,8 +21,9 @@ export function extractOpenAPI3BaseUrl(api: OpenAPIV3.Document): string {
   // Interpolate server variables with defaults
   if (server.variables) {
     for (const [name, variable] of Object.entries(server.variables)) {
-      const value = variable.default ?? variable.enum?.[0] ?? name
-      url = url.replace(`{${name}}`, String(value))
+      const value = variable.default ?? variable.enum?.[0]
+      if (value === undefined) return ''
+      url = url.replaceAll(`{${name}}`, String(value))
     }
   }
 

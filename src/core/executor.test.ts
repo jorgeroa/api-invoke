@@ -467,24 +467,22 @@ describe('throwOnHttpError', () => {
 describe('response body in errors', () => {
   it('includes responseBody in auth errors', async () => {
     const fetch = mockFetch(401, { error: 'invalid_token', message: 'Token expired' })
-    try {
-      await executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
-      expect.fail('should have thrown')
-    } catch (err: unknown) {
-      const e = err as { responseBody: unknown }
-      expect(e.responseBody).toEqual({ error: 'invalid_token', message: 'Token expired' })
-    }
+    await expect(
+      executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
+    ).rejects.toMatchObject({
+      kind: 'auth',
+      responseBody: { error: 'invalid_token', message: 'Token expired' },
+    })
   })
 
   it('includes responseBody in http errors', async () => {
     const fetch = mockFetch(500, { error: 'internal_error' })
-    try {
-      await executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
-      expect.fail('should have thrown')
-    } catch (err: unknown) {
-      const e = err as { responseBody: unknown }
-      expect(e.responseBody).toEqual({ error: 'internal_error' })
-    }
+    await expect(
+      executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
+    ).rejects.toMatchObject({
+      kind: 'http',
+      responseBody: { error: 'internal_error' },
+    })
   })
 })
 
@@ -493,6 +491,14 @@ describe('response body in errors', () => {
 describe('errorKind in non-throwing mode', () => {
   it('sets errorKind to auth for 401', async () => {
     const fetch = mockFetch(401, { error: 'unauthorized' })
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch, throwOnHttpError: false }
+    )
+    expect(result.errorKind).toBe('auth')
+  })
+
+  it('sets errorKind to auth for 403', async () => {
+    const fetch = mockFetch(403, { error: 'forbidden' })
     const result = await executeOperation(
       baseUrl, { ...getOp, parameters: [] }, {}, { fetch, throwOnHttpError: false }
     )

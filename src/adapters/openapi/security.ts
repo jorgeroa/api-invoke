@@ -60,6 +60,7 @@ function mapSingleScheme(
     const metadata: Record<string, string> = {}
 
     // OpenAPI 3.x: flows object
+    let flowResolved = false
     if ('flows' in scheme) {
       const oauth3 = scheme as OpenAPIV3.OAuth2SecurityScheme
       const flow = oauth3.flows.authorizationCode
@@ -67,6 +68,7 @@ function mapSingleScheme(
         ?? oauth3.flows.implicit
         ?? oauth3.flows.password
       if (flow) {
+        flowResolved = true
         if ('authorizationUrl' in flow && flow.authorizationUrl) metadata.authorizationUrl = flow.authorizationUrl
         if ('tokenUrl' in flow && flow.tokenUrl) metadata.tokenUrl = flow.tokenUrl
         if (flow.refreshUrl) metadata.refreshUrl = flow.refreshUrl
@@ -78,6 +80,7 @@ function mapSingleScheme(
 
     // Swagger 2.0: flat fields (use generic access since union types vary)
     if ('flow' in scheme) {
+      flowResolved = true
       const oauth2 = scheme as unknown as Record<string, unknown>
       if (typeof oauth2.authorizationUrl === 'string') metadata.authorizationUrl = oauth2.authorizationUrl
       if (typeof oauth2.tokenUrl === 'string') metadata.tokenUrl = oauth2.tokenUrl
@@ -87,7 +90,10 @@ function mapSingleScheme(
       }
     }
 
-    return { name, authType: AuthType.OAUTH2, metadata, description: baseDescription }
+    const description = flowResolved
+      ? baseDescription
+      : `${baseDescription} (OAuth2 detected but no supported flow found)`
+    return { name, authType: AuthType.OAUTH2, metadata, description }
   }
 
   // openIdConnect
