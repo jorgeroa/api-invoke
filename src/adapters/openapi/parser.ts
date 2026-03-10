@@ -27,7 +27,7 @@ const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
  * Handles 3.1 type arrays (e.g. ["string", "null"]) by picking the first non-null entry,
  * passes through plain strings, and falls back to the provided default for missing/unrecognized values.
  */
-function normalizeType(type: unknown, fallback = 'string'): string {
+export function normalizeType(type: unknown, fallback = 'string'): string {
   if (Array.isArray(type)) {
     const nonNull = type.filter((t: string) => t !== 'null')
     return nonNull[0] ?? fallback
@@ -290,9 +290,9 @@ function extractResponseSchema(
   const responses = operation.responses
   if (!responses) return undefined
 
-  // Try success statuses in order (aligned with extractResponseContentType)
+  // Try success statuses in order (aligned with extractResponseContentType), skip 'default' as it often describes errors
   const successResponse = responses['200'] ?? responses['201'] ?? responses['202']
-    ?? responses['2XX'] ?? responses['default']
+    ?? responses['2XX']
   if (!successResponse) return undefined
 
   if (isOpenAPI3) {
@@ -312,7 +312,7 @@ function extractResponseContentType(
   if (!responses) return undefined
 
   const successResponse = responses['200'] ?? responses['201'] ?? responses['202']
-    ?? responses['2XX'] ?? responses['default']
+    ?? responses['2XX']
   if (!successResponse) return undefined
 
   if (isOpenAPI3) {

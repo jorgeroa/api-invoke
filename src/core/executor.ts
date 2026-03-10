@@ -205,7 +205,9 @@ export async function executeOperation(
       if (options.throwOnHttpError !== false) throw parseError(url)
       try {
         data = await cloned.text()
-      } catch {
+      } catch (textError) {
+        // Response body could not be read as text either — surface the failure
+        console.warn('[api-invoke] Failed to read response body:', textError)
         data = null
       }
     }

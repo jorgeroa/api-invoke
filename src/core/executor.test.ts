@@ -529,3 +529,24 @@ describe('errorKind in non-throwing mode', () => {
     expect(result.errorKind).toBeUndefined()
   })
 })
+
+// === Per-call auth override ===
+
+describe('per-call auth override', () => {
+  it('uses provided auth', async () => {
+    const fetch = mockFetch()
+    await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {},
+      { fetch, auth: { type: 'bearer', token: 'call-token' } }
+    )
+    const [, init] = fetch.mock.calls[0]
+    expect(init.headers['Authorization']).toBe('Bearer call-token')
+  })
+
+  it('sends no auth header when no auth provided', async () => {
+    const fetch = mockFetch()
+    await executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
+    const [, init] = fetch.mock.calls[0]
+    expect(init.headers['Authorization']).toBeUndefined()
+  })
+})

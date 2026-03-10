@@ -141,7 +141,7 @@ export type Auth =
 
 // === Execution ===
 
-/** Error kinds that can appear on ExecutionResult (subset of ErrorKind). */
+/** HTTP-response error kinds for ExecutionResult (non-throwing mode). Client-side errors (CORS, NETWORK, TIMEOUT, PARSE) always throw regardless of throwOnHttpError. */
 export type ResultErrorKind = typeof ErrorKind.AUTH | typeof ErrorKind.RATE_LIMIT | typeof ErrorKind.HTTP
 
 export interface ExecutionResult {
