@@ -187,7 +187,9 @@ export async function executeOperation(
 
     if (options.middleware) {
       for (const mw of options.middleware) {
-        if (mw.onError) mw.onError(error as Error)
+        if (mw.onError) {
+          try { mw.onError(error as Error) } catch { /* middleware must not mask the original error */ }
+        }
       }
     }
 
@@ -247,10 +249,9 @@ export async function executeOperation(
       console.warn('[api-invoke] JSON parse failed, falling back to text:', jsonError)
       try {
         data = await cloned.text()
-      } catch (textError) {
-        // Response body could not be read as text either — surface the failure
-        console.warn('[api-invoke] Failed to read response body:', textError)
-        data = null
+      } catch {
+        // Body unreadable is a client-side failure — throw even in non-throwing mode
+        throw parseError(url)
       }
     }
   } else if (isBinaryContentType(contentType)) {

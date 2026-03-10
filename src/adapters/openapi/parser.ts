@@ -14,7 +14,7 @@ import type {
   RequestBodySchema,
   RequestBodyProperty,
 } from '../../core/types'
-import { ContentType, HttpMethod, ParamLocation, SpecFormat } from '../../core/types'
+import { ContentType, ParamLocation, SpecFormat } from '../../core/types'
 import { extractOpenAPI3BaseUrl, extractSwagger2BaseUrl } from './base-url'
 import { mapSecuritySchemes } from './security'
 import { deriveBaseUrl } from '../../core/url-builder'
@@ -83,7 +83,7 @@ export async function parseOpenAPISpec(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     const urlInfo = typeof specUrlOrObject === 'string' ? ` from ${specUrlOrObject}` : ''
-    throw new Error(`Failed to parse OpenAPI spec${urlInfo}: ${message}`)
+    throw new Error(`Failed to parse OpenAPI spec${urlInfo}: ${message}`, { cause: error })
   }
 }
 

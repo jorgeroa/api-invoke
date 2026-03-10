@@ -648,3 +648,36 @@ describe('buildRequest', () => {
     expect(req.headers[HeaderName.COOKIE]).toBe('session=abc123')
   })
 })
+
+describe('middleware onError isolation', () => {
+  const op: Operation = { id: 'test', path: '/data', method: HttpMethod.GET, parameters: [], tags: [] }
+
+  it('does not let middleware onError mask the original fetch error', async () => {
+    const fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    const badMiddleware = {
+      name: 'bad',
+      onError: () => { throw new Error('middleware bug') },
+    }
+    await expect(
+      executeOperation(baseUrl, op, {}, { fetch, middleware: [badMiddleware] })
+    ).rejects.toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.NETWORK })
+  })
+})
+
+describe('double parse failure', () => {
+  const op: Operation = { id: 'test', path: '/data', method: HttpMethod.GET, parameters: [], tags: [] }
+
+  it('throws parseError when both json and text reads fail', async () => {
+    const badResponse = new Response('bad', { status: 200, headers: { 'content-type': ContentType.JSON } })
+    // Sabotage both json() and text() on the response
+    vi.spyOn(badResponse, 'json').mockRejectedValue(new Error('json failed'))
+    const clonedResponse = badResponse.clone()
+    vi.spyOn(badResponse, 'clone').mockReturnValue(clonedResponse)
+    vi.spyOn(clonedResponse, 'text').mockRejectedValue(new Error('text failed'))
+    const fetch = vi.fn().mockResolvedValue(badResponse)
+
+    await expect(
+      executeOperation(baseUrl, op, {}, { fetch, throwOnHttpError: false })
+    ).rejects.toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.PARSE })
+  })
+})
