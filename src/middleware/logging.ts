@@ -16,7 +16,7 @@ export interface LoggingOptions {
   sensitiveHeaders?: string[]
   /** Query parameter names to mask (e.g., ['api_key', 'token']) */
   sensitiveParams?: string[]
-  /** Label prefix for log messages (default: 'api-bridge') */
+  /** Label prefix for log messages (default: 'api-invoke') */
   prefix?: string
 }
 
@@ -114,7 +114,7 @@ export function logging(options: LoggingOptions = {}): Middleware {
   const {
     log = console.log,
     logBody = false,
-    prefix = 'api-bridge',
+    prefix = 'api-invoke',
   } = options
 
   const sensitiveHeaders = [
@@ -126,12 +126,14 @@ export function logging(options: LoggingOptions = {}): Middleware {
     ...(options.sensitiveParams ?? []),
   ]
 
-  const startTimes = new WeakMap<RequestInit, number>()
+  let requestStart = 0
 
   return {
     name: 'logging',
 
     onRequest(url, init) {
+      requestStart = performance.now()
+
       const maskedUrl = maskUrl(url, sensitiveParams)
       const method = (init.method ?? 'GET').toUpperCase()
       const headers = formatHeaders(init, sensitiveHeaders)
@@ -146,12 +148,11 @@ export function logging(options: LoggingOptions = {}): Middleware {
       }
       log(parts.join('\n'))
 
-      startTimes.set(init, performance.now())
       return { url, init }
     },
 
     onResponse(response) {
-      const elapsed = '?ms'
+      const elapsed = requestStart ? `${Math.round(performance.now() - requestStart)}ms` : '?ms'
       const status = response.status
       const statusText = response.statusText
       log(`[${prefix}] ← ${status} ${statusText} (${elapsed})`)

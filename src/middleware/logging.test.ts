@@ -111,4 +111,23 @@ describe('logging', () => {
     const mw = logging()
     expect(mw.name).toBe('logging')
   })
+
+  it('uses api-invoke as default prefix', () => {
+    const log = vi.fn()
+    const mw = logging({ log })
+    mw.onRequest!('https://api.example.com/users', { method: 'GET' })
+    expect(log.mock.calls[0][0]).toContain('[api-invoke]')
+  })
+
+  it('logs elapsed time in onResponse after onRequest', async () => {
+    const log = vi.fn()
+    const mw = logging({ log })
+    mw.onRequest!('https://api.example.com/users', { method: 'GET' })
+    // Small delay to ensure measurable elapsed time
+    await new Promise(r => setTimeout(r, 5))
+    mw.onResponse!(new Response('{}', { status: 200, statusText: 'OK' }))
+    const responseLog = log.mock.calls[1][0]
+    expect(responseLog).toMatch(/\(\d+ms\)/)
+    expect(responseLog).not.toContain('?ms')
+  })
 })

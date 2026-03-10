@@ -27,6 +27,7 @@ export {
   HttpMethod,
   ParamLocation,
   AuthType,
+  ContentType,
   SpecFormat,
 } from './core/types'
 

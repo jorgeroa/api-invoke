@@ -85,9 +85,20 @@ export interface ParameterSchema {
   maxLength?: number
 }
 
+export const ContentType = {
+  JSON: 'application/json',
+  FORM_URLENCODED: 'application/x-www-form-urlencoded',
+  MULTIPART: 'multipart/form-data',
+  XML: 'application/xml',
+  OCTET_STREAM: 'application/octet-stream',
+  TEXT: 'text/plain',
+} as const
+export type ContentType = (typeof ContentType)[keyof typeof ContentType]
+
 export interface RequestBody {
   required: boolean
   description?: string
+  contentType: ContentType | string
   schema: RequestBodySchema
 }
 
@@ -148,6 +159,8 @@ export interface ClientOptions {
   middleware?: Middleware[]
   fetch?: typeof globalThis.fetch
   enricher?: Enricher
+  /** Default timeout in milliseconds for all operations. 0 = no timeout (default). */
+  timeoutMs?: number
 }
 
 // === Middleware ===

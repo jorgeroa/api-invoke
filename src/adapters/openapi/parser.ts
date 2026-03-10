@@ -15,7 +15,7 @@ import type {
   RequestBodyProperty,
   ParamLocation,
 } from '../../core/types'
-import { SpecFormat } from '../../core/types'
+import { ContentType, SpecFormat } from '../../core/types'
 import { extractOpenAPI3BaseUrl, extractSwagger2BaseUrl } from './base-url'
 import { mapSecuritySchemes } from './security'
 import { deriveBaseUrl } from '../../core/url-builder'
@@ -162,6 +162,16 @@ function parseParameter(
   return { name, in: location, required, description, schema }
 }
 
+/** Content types to try, in priority order. */
+const CONTENT_TYPE_PRIORITY = [
+  ContentType.JSON,
+  ContentType.FORM_URLENCODED,
+  ContentType.MULTIPART,
+  ContentType.XML,
+  ContentType.TEXT,
+  ContentType.OCTET_STREAM,
+] as const
+
 function extractRequestBody(
   operation: OpenAPIV3.OperationObject | OpenAPIV2.OperationObject,
   isOpenAPI3: boolean,
@@ -170,22 +180,58 @@ function extractRequestBody(
     const op = operation as OpenAPIV3.OperationObject
     if (!op.requestBody) return undefined
     const body = op.requestBody as OpenAPIV3.RequestBodyObject
-    const jsonContent = body.content?.['application/json']
-    if (!jsonContent?.schema) return undefined
-    return {
-      required: body.required ?? false,
-      description: body.description,
-      schema: flattenSchema(jsonContent.schema as OpenAPIV3.SchemaObject),
+    if (!body.content) return undefined
+
+    // Try content types in priority order
+    for (const ct of CONTENT_TYPE_PRIORITY) {
+      const mediaType = body.content[ct]
+      if (mediaType?.schema) {
+        return {
+          required: body.required ?? false,
+          description: body.description,
+          contentType: ct,
+          schema: flattenSchema(mediaType.schema as OpenAPIV3.SchemaObject),
+        }
+      }
     }
+
+    // Fallback: use the first available content type
+    const firstKey = Object.keys(body.content)[0]
+    if (firstKey) {
+      const mediaType = body.content[firstKey]
+      if (mediaType?.schema) {
+        return {
+          required: body.required ?? false,
+          description: body.description,
+          contentType: firstKey,
+          schema: flattenSchema(mediaType.schema as OpenAPIV3.SchemaObject),
+        }
+      }
+    }
+
+    return undefined
   } else {
     const op = operation as OpenAPIV2.OperationObject
     const bodyParam = op.parameters?.find(
       (p: unknown) => (p as { in: string }).in === 'body',
     ) as OpenAPIV2.InBodyParameterObject | undefined
     if (!bodyParam?.schema) return undefined
+
+    // Swagger 2.0: check consumes for content type
+    const consumes = op.consumes ?? []
+    let contentType: string = ContentType.JSON
+    if (consumes.includes(ContentType.FORM_URLENCODED)) {
+      contentType = ContentType.FORM_URLENCODED
+    } else if (consumes.includes(ContentType.MULTIPART)) {
+      contentType = ContentType.MULTIPART
+    } else if (consumes.length > 0) {
+      contentType = consumes[0]
+    }
+
     return {
       required: bodyParam.required ?? false,
       description: bodyParam.description,
+      contentType,
       schema: flattenSchema(bodyParam.schema as unknown as OpenAPIV3.SchemaObject),
     }
   }

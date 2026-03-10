@@ -38,12 +38,14 @@ export class ApiInvokeClient {
   private auth: Auth | undefined
   private middleware: Middleware[]
   private fetchFn: typeof globalThis.fetch
+  private timeoutMs: number
 
   constructor(api: ParsedAPI, options: ClientOptions = {}) {
     this.api = api
     this.auth = options.auth
     this.middleware = options.middleware ?? []
     this.fetchFn = options.fetch ?? globalThis.fetch
+    this.timeoutMs = options.timeoutMs ?? 0
   }
 
   /** The resolved base URL for this API */
@@ -98,6 +100,7 @@ export class ApiInvokeClient {
       auth: this.auth,
       middleware: this.middleware,
       fetch: this.fetchFn,
+      timeoutMs: this.timeoutMs,
     })
   }
 
