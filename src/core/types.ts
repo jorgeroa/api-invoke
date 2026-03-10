@@ -63,6 +63,8 @@ export interface Operation {
   parameters: Parameter[]
   requestBody?: RequestBody
   responseSchema?: unknown
+  /** Primary response content type from the spec (e.g. 'application/json', 'application/xml'). */
+  responseContentType?: string
   tags: string[]
 }
 
@@ -139,6 +141,8 @@ export type Auth =
 export interface ExecutionResult {
   status: number
   data: unknown
+  /** Response content type (e.g. 'application/json', 'text/xml'). */
+  contentType: string
   headers: Record<string, string>
   request: { method: string; url: string; headers: Record<string, string> }
   elapsedMs: number

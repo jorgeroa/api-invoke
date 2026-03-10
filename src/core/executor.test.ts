@@ -244,6 +244,81 @@ describe('ExecutionResult', () => {
     )
     expect(result.headers['x-request-id']).toBe('abc-123')
   })
+
+  it('includes contentType from response', async () => {
+    const fetch = mockFetch(200, { ok: true })
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.contentType).toBe('application/json')
+  })
+
+  it('includes contentType for non-JSON responses', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'text/xml' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('<root/>', { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.contentType).toBe('text/xml')
+    expect(result.data).toBe('<root/>')
+  })
+})
+
+// === Accept header ===
+
+describe('Accept header', () => {
+  it('defaults to application/json', async () => {
+    const fetch = mockFetch()
+    await executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
+    const [, init] = fetch.mock.calls[0]
+    expect(init.headers['Accept']).toBe('application/json')
+  })
+
+  it('uses operation responseContentType', async () => {
+    const fetch = mockFetch()
+    const op: Operation = { ...getOp, parameters: [], responseContentType: 'application/xml' }
+    await executeOperation(baseUrl, op, {}, { fetch })
+    const [, init] = fetch.mock.calls[0]
+    expect(init.headers['Accept']).toBe('application/xml')
+  })
+
+  it('uses explicit accept option over operation default', async () => {
+    const fetch = mockFetch()
+    const op: Operation = { ...getOp, parameters: [], responseContentType: 'application/xml' }
+    await executeOperation(baseUrl, op, {}, { fetch, accept: 'text/plain' })
+    const [, init] = fetch.mock.calls[0]
+    expect(init.headers['Accept']).toBe('text/plain')
+  })
+})
+
+// === Binary response ===
+
+describe('binary response handling', () => {
+  it('returns ArrayBuffer for binary content types', async () => {
+    const binaryData = new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer
+    const responseHeaders = new Headers({ 'content-type': 'image/png' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(binaryData, { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.contentType).toBe('image/png')
+    expect(result.data).toBeInstanceOf(ArrayBuffer)
+  })
+
+  it('returns ArrayBuffer for audio content', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'audio/mpeg' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(new ArrayBuffer(8), { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.data).toBeInstanceOf(ArrayBuffer)
+  })
 })
 
 // === throwOnHttpError ===

@@ -26,6 +26,8 @@ export interface ExecuteOptions {
   timeoutMs?: number
   /** AbortSignal to cancel the request. */
   signal?: AbortSignal
+  /** Override the Accept header. Defaults to operation.responseContentType or 'application/json'. */
+  accept?: string
 }
 
 /**
@@ -54,8 +56,9 @@ export async function executeOperation(
   let url = buildUrl(baseUrl, operation, args)
   const method = operation.method.toUpperCase()
 
+  const accept = options.accept ?? operation.responseContentType ?? 'application/json'
   const headers: Record<string, string> = {
-    'Accept': 'application/json',
+    'Accept': accept,
     ...extractHeaderParams(operation.parameters, args),
   }
 
@@ -197,6 +200,11 @@ export async function executeOperation(
       if (options.throwOnHttpError !== false) throw parseError(url)
       data = null
     }
+  } else if (isBinaryContentType(contentType)) {
+    data = await response.arrayBuffer()
+  } else if (contentType.includes('xml') || contentType.includes('text/xml')) {
+    // Return XML as text — consumers can parse with their preferred XML library
+    data = await response.text()
   } else {
     const text = await response.text()
     // Try JSON parsing for responses without proper content-type
@@ -210,6 +218,7 @@ export async function executeOperation(
   const result: ExecutionResult = {
     status: response.status,
     data,
+    contentType,
     headers: responseHeaders,
     request: { method, url, headers },
     elapsedMs,
@@ -261,4 +270,17 @@ export async function executeRaw(
     timeoutMs: options.timeoutMs,
     signal: options.signal,
   })
+}
+
+const BINARY_CONTENT_PATTERNS = [
+  'application/octet-stream',
+  'application/pdf',
+  'application/zip',
+  'audio/',
+  'image/',
+  'video/',
+]
+
+function isBinaryContentType(contentType: string): boolean {
+  return BINARY_CONTENT_PATTERNS.some(p => contentType.includes(p))
 }

@@ -61,4 +61,7 @@ export type { RetryOptions, CorsProxyOptions, LoggingOptions } from './middlewar
 
 // Adapters (for advanced usage)
 export { parseOpenAPISpec } from './adapters/openapi/parser'
-export { parseRawUrl } from './adapters/raw/parser'
+export { parseRawUrl, parseRawUrls } from './adapters/raw/parser'
+export type { RawEndpoint } from './adapters/raw/parser'
+export { defineAPI, APIBuilder } from './adapters/manual/builder'
+export type { EndpointOptions, ParamDef, BodyDef, PropertyDef } from './adapters/manual/builder'

@@ -99,6 +99,7 @@ function extractOperations(
 
       const requestBody = extractRequestBody(op, isOpenAPI3)
       const responseSchema = extractResponseSchema(op, isOpenAPI3)
+      const responseContentType = extractResponseContentType(op, isOpenAPI3)
 
       // Generate a stable ID from operationId or method+path
       const id = op.operationId
@@ -113,6 +114,7 @@ function extractOperations(
         parameters,
         requestBody,
         responseSchema,
+        responseContentType,
         tags: op.tags ?? [],
       })
     }
@@ -277,6 +279,36 @@ function extractResponseSchema(
     return resp.content?.['application/json']?.schema
   } else {
     return (response200 as OpenAPIV2.ResponseObject).schema
+  }
+}
+
+function extractResponseContentType(
+  operation: OpenAPIV3.OperationObject | OpenAPIV2.OperationObject,
+  isOpenAPI3: boolean,
+): string | undefined {
+  // Find the first success response (200, 201, or default)
+  const responses = operation.responses
+  if (!responses) return undefined
+
+  const successResponse = responses['200'] ?? responses['201'] ?? responses['default']
+  if (!successResponse) return undefined
+
+  if (isOpenAPI3) {
+    const resp = successResponse as OpenAPIV3.ResponseObject
+    if (!resp.content) return undefined
+    // Return first content type, preferring application/json
+    const types = Object.keys(resp.content)
+    if (types.includes('application/json')) return 'application/json'
+    return types[0]
+  } else {
+    // Swagger 2.0: check operation-level `produces` or top-level `produces`
+    const op = operation as OpenAPIV2.OperationObject
+    const produces = op.produces
+    if (produces && produces.length > 0) {
+      if (produces.includes('application/json')) return 'application/json'
+      return produces[0]
+    }
+    return undefined // Will use top-level produces or default
   }
 }
 
