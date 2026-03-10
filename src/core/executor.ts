@@ -165,6 +165,8 @@ export async function executeOperation(
         const probe = await fetchFn(url, { mode: 'no-cors' })
         if (probe.type === 'opaque') throw corsError(url)
       } catch (probeError) {
+        // Re-throw if the probe identified a CORS error; swallow other probe failures
+        // since the probe is a best-effort heuristic (browser-only)
         if (probeError instanceof Error && probeError.name === 'ApiInvokeError') throw probeError
       }
       throw networkError(url)
@@ -190,7 +192,8 @@ export async function executeOperation(
     responseHeaders[key] = value
   })
 
-  // Parse response body (always, so it's available even for error responses)
+  // Parse response body based on content type
+  // Handles JSON (including +json variants like application/vnd.api+json), binary, and XML
   let data: unknown
   const contentType = response.headers.get('content-type') || ''
   if (contentType.includes('application/json') || contentType.includes('+json')) {
@@ -205,16 +208,21 @@ export async function executeOperation(
     try {
       data = await response.arrayBuffer()
     } catch {
-      throw parseError(url)
+      throw parseError(url, 'binary')
     }
-  } else if (contentType.includes('/xml') || contentType.endsWith('+xml')) {
+  } else if (contentType.includes('/xml') || contentType.includes('+xml')) {
     try {
       data = await response.text()
     } catch {
-      throw parseError(url)
+      throw parseError(url, 'XML')
     }
   } else {
-    const text = await response.text()
+    let text: string
+    try {
+      text = await response.text()
+    } catch {
+      throw parseError(url, 'text')
+    }
     // Try JSON parsing for responses without proper content-type
     try {
       data = JSON.parse(text)

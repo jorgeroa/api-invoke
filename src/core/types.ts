@@ -64,7 +64,7 @@ export interface Operation {
   parameters: Parameter[]
   requestBody?: RequestBody
   responseSchema?: unknown
-  /** Primary response content type from the spec (e.g. 'application/json', 'application/xml'). */
+  /** Primary response content type (e.g. 'application/json', 'application/xml'). Set from spec or builder. */
   responseContentType?: ContentType | string
   tags: string[]
 }

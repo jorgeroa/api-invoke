@@ -92,11 +92,11 @@ export function httpError(url: string, status: number, statusText: string): ApiI
   })
 }
 
-export function parseError(url: string): ApiInvokeError {
+export function parseError(url: string, expectedType = 'JSON'): ApiInvokeError {
   return new ApiInvokeError({
     kind: ErrorKind.PARSE,
-    message: `Failed to parse response from ${url} as JSON.`,
-    suggestion: 'The API did not return valid JSON. Ensure the URL points to a JSON API endpoint.',
+    message: `Failed to parse response from ${url} as ${expectedType}.`,
+    suggestion: `The API response body could not be read as ${expectedType}. Verify the endpoint returns the expected content type.`,
     retryable: false,
   })
 }

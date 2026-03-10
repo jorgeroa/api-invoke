@@ -70,4 +70,17 @@ describe('parseRawUrls', () => {
     ])
     expect(api.operations[0].method).toBe('GET')
   })
+
+  it('throws for mixed origins', () => {
+    expect(() => parseRawUrls([
+      { url: 'https://api.example.com/users' },
+      { url: 'https://other-api.com/data' },
+    ])).toThrow('same origin')
+  })
+
+  it('throws for invalid URLs with a helpful message', () => {
+    expect(() => parseRawUrls([
+      { url: 'not-a-url' },
+    ])).toThrow('Invalid URL')
+  })
 })

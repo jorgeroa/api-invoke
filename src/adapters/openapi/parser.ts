@@ -219,7 +219,7 @@ function extractRequestBody(
     ) as OpenAPIV2.InBodyParameterObject | undefined
     if (!bodyParam?.schema) return undefined
 
-    // Swagger 2.0: check consumes for content type
+    // Swagger 2.0: check operation-level consumes for content type
     const consumes = op.consumes ?? []
     let contentType: string = ContentType.JSON
     if (consumes.includes(ContentType.FORM_URLENCODED)) {

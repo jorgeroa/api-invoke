@@ -22,7 +22,7 @@ export interface EndpointOptions {
   description?: string
   params?: Record<string, ParamDef | string>
   body?: BodyDef
-  responseContentType?: string
+  responseContentType?: ContentType | string
   tags?: string[]
 }
 

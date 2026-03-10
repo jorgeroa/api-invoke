@@ -293,10 +293,94 @@ describe('Accept header', () => {
   })
 })
 
+// === +json content type variants ===
+
+describe('+json content type handling', () => {
+  it('parses application/vnd.api+json as JSON', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'application/vnd.api+json' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: [1, 2] }), { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.data).toEqual({ data: [1, 2] })
+    expect(result.contentType).toBe('application/vnd.api+json')
+  })
+
+  it('parses application/hal+json as JSON', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'application/hal+json; charset=utf-8' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ _links: {} }), { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.data).toEqual({ _links: {} })
+  })
+})
+
+// === No content-type header ===
+
+describe('text/plain content-type handling', () => {
+  it('tries JSON parse for text/plain and succeeds with JSON body', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'text/plain' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.data).toEqual({ ok: true })
+  })
+
+  it('returns raw text when body is not JSON', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'text/plain' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('plain text response', { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.data).toBe('plain text response')
+  })
+})
+
+// === application/xml ===
+
+describe('application/xml handling', () => {
+  it('returns application/xml as text', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'application/xml' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('<root><item/></root>', { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    expect(result.contentType).toBe('application/xml')
+    expect(result.data).toBe('<root><item/></root>')
+  })
+})
+
+// === JSON parse failure with throwOnHttpError: false ===
+
+describe('JSON parse failure fallback', () => {
+  it('returns raw text when JSON parse fails and throwOnHttpError is false', async () => {
+    const responseHeaders = new Headers({ 'content-type': 'application/json' })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('not valid json {{{', { status: 200, headers: responseHeaders })
+    )
+    const result = await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch, throwOnHttpError: false }
+    )
+    expect(result.data).toBe('not valid json {{{')
+  })
+})
+
 // === Binary response ===
 
 describe('binary response handling', () => {
-  it('returns ArrayBuffer for binary content types', async () => {
+  it('returns ArrayBuffer for binary content types and preserves data', async () => {
     const binaryData = new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer
     const responseHeaders = new Headers({ 'content-type': 'image/png' })
     const fetch = vi.fn().mockResolvedValue(
@@ -307,6 +391,7 @@ describe('binary response handling', () => {
     )
     expect(result.contentType).toBe('image/png')
     expect(result.data).toBeInstanceOf(ArrayBuffer)
+    expect(new Uint8Array(result.data as ArrayBuffer)).toEqual(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
   })
 
   it('returns ArrayBuffer for audio content', async () => {

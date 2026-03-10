@@ -86,7 +86,7 @@ function serializeQueryParam(url: URL, name: string, value: unknown): void {
     url.searchParams.set(name, value.map(String).join(','))
   } else if (typeof value === 'object' && value !== null) {
     const pairs = Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== undefined)
+      .filter(([, v]) => v !== undefined && v !== null)
       .map(([k, v]) => {
         if (typeof v === 'object' && v !== null) {
           throw new Error(

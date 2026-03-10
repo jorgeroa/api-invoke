@@ -99,6 +99,34 @@ describe('array/object query param serialization', () => {
     expect(url).toContain('filter=status%2Cactive%2Crole%2Cadmin')
   })
 
+  it('throws for nested objects', () => {
+    const op: Operation = {
+      id: 'test',
+      path: '/items',
+      method: 'GET',
+      parameters: [
+        { name: 'filter', in: 'query', required: false, description: '', schema: { type: 'object' } },
+      ],
+      tags: [],
+    }
+    expect(() => buildUrl('https://api.example.com', op, { filter: { status: { eq: 'active' } } }))
+      .toThrow('Cannot serialize nested object')
+  })
+
+  it('serializes empty array as empty value', () => {
+    const op: Operation = {
+      id: 'test',
+      path: '/items',
+      method: 'GET',
+      parameters: [
+        { name: 'tags', in: 'query', required: false, description: '', schema: { type: 'array' } },
+      ],
+      tags: [],
+    }
+    const url = buildUrl('https://api.example.com', op, { tags: [] })
+    expect(url).toContain('tags=')
+  })
+
   it('handles plain string values normally', () => {
     const op: Operation = {
       id: 'test',
