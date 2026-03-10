@@ -27,6 +27,7 @@ describe('injectAuth', () => {
     const result = injectAuth('https://api.example.com', {}, { type: AuthType.OAUTH2, accessToken: 'token123' })
     expect(result.headers[HeaderName.AUTHORIZATION]).toBe('Bearer token123')
   })
+
   it('injects cookie auth', () => {
     const result = injectAuth('https://api.example.com', {}, { type: AuthType.COOKIE, name: 'session_id', value: 'abc123' })
     expect(result.headers[HeaderName.COOKIE]).toBe('session_id=abc123')
@@ -58,5 +59,13 @@ describe('maskAuth', () => {
 
   it('masks api key', () => {
     expect(maskAuth({ type: AuthType.API_KEY, location: ParamLocation.HEADER, name: 'X-API-Key', value: 'secret' })).toBe('X-API-Key: ***')
+  })
+
+  it('masks cookie auth', () => {
+    expect(maskAuth({ type: AuthType.COOKIE, name: 'session_id', value: 'secret123' })).toBe('Cookie session_id=***')
+  })
+
+  it('masks oauth2', () => {
+    expect(maskAuth({ type: AuthType.OAUTH2, accessToken: 'token123' })).toBe('OAuth2 ***')
   })
 })

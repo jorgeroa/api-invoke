@@ -13,15 +13,14 @@ import type {
   RequestBody,
   RequestBodySchema,
   RequestBodyProperty,
-  ParamLocation,
 } from '../../core/types'
-import { ContentType, HttpMethod, SpecFormat } from '../../core/types'
+import { ContentType, HttpMethod, ParamLocation, SpecFormat } from '../../core/types'
 import { extractOpenAPI3BaseUrl, extractSwagger2BaseUrl } from './base-url'
 import { mapSecuritySchemes } from './security'
 import { deriveBaseUrl } from '../../core/url-builder'
 
-/** OpenAPI path item keys are lowercase; derive from HttpMethod to stay in sync. */
-const SUPPORTED_METHODS = Object.values(HttpMethod).map(m => m.toLowerCase())
+/** Standard OpenAPI path item methods (HEAD/OPTIONS excluded — not typical API operations). */
+const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
 
 /**
  * Normalize an OpenAPI schema type field to a single type string.
@@ -105,7 +104,7 @@ function extractOperations(
       const op = (pathItem as Record<string, unknown>)[method] as OpenAPIV3.OperationObject | OpenAPIV2.OperationObject
       const operationParams = op.parameters ?? []
       const allParams = [...pathLevelParams, ...operationParams].filter(
-        (p) => (p as { in: string }).in !== 'body', // Swagger 2.0 body params are handled via requestBody
+        (p) => (p as { in: string }).in !== 'body', // 'body' is a Swagger 2.0-specific location, not in ParamLocation
       )
 
       const parameters = allParams.map((param) =>
@@ -144,7 +143,7 @@ function parseParameter(
 ): Parameter {
   const name = param.name
   const location = param.in as ParamLocation
-  const required = param.required ?? location === 'path'
+  const required = param.required ?? location === ParamLocation.PATH
   const description = param.description ?? ''
 
   let schema: ParameterSchema

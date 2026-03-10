@@ -160,7 +160,7 @@ export interface ExecutionResult {
   /** Response content type (e.g. 'application/json', 'text/xml'). */
   contentType: string
   headers: Record<string, string>
-  request: { method: string; url: string; headers: Record<string, string>; body?: string }
+  request: { method: HttpMethod | string; url: string; headers: Record<string, string>; body?: string }
   elapsedMs: number
   /** Set when throwOnHttpError is false and the response is an error. Allows programmatic error classification without throwing. */
   errorKind?: ResultErrorKind

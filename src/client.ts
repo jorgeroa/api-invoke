@@ -165,24 +165,41 @@ async function fetchAndParseSpec(url: string, options: ClientOptions): Promise<P
   return parseOpenAPISpec(specObject, { specUrl: url })
 }
 
+/**
+ * Attempt content-based spec detection by fetching the URL and inspecting the response body.
+ * Falls back to raw URL mode if the URL is unreachable or the response is not a recognized spec format.
+ * If content IS detected as a spec, parse errors propagate (not swallowed).
+ */
 async function tryContentDetection(url: string, options: ClientOptions): Promise<ParsedAPI> {
   const fetchFn = options.fetch ?? globalThis.fetch
+
+  let response: Response
   try {
-    const response = await fetchFn(url)
-    if (response.ok) {
-      const text = await response.text()
-      try {
-        const obj = JSON.parse(text) as Record<string, unknown>
-        if (isSpecContent(obj)) {
-          return parseOpenAPISpec(obj, { specUrl: url })
-        }
-      } catch {
-        // Not JSON — not a spec
-      }
-    }
+    response = await fetchFn(url)
   } catch {
-    // Fetch failed — fall through to raw URL mode
+    // Network failure — raw URL mode is acceptable
+    return parseRawUrl(url)
   }
+
+  if (!response.ok) {
+    return parseRawUrl(url)
+  }
+
+  const text = await response.text()
+
+  let obj: Record<string, unknown>
+  try {
+    obj = JSON.parse(text) as Record<string, unknown>
+  } catch {
+    // Not JSON — not a spec
+    return parseRawUrl(url)
+  }
+
+  if (isSpecContent(obj)) {
+    // Content IS a spec — let parse errors propagate
+    return parseOpenAPISpec(obj, { specUrl: url })
+  }
+
   return parseRawUrl(url)
 }
 

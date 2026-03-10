@@ -21,6 +21,7 @@ export function injectAuth(
   auth: Auth | Auth[],
 ): AuthenticatedRequest {
   if (Array.isArray(auth)) {
+    // Apply auth schemes in order. Later entries override earlier ones for the same header/param.
     let result: AuthenticatedRequest = { url, headers: { ...headers } }
     for (const a of auth) {
       result = injectAuth(result.url, result.headers, a)
@@ -58,7 +59,7 @@ export function injectAuth(
 
     case AuthType.COOKIE: {
       const existing = result.headers[HeaderName.COOKIE]
-      const cookie = `${auth.name}=${auth.value}`
+      const cookie = `${encodeURIComponent(auth.name)}=${encodeURIComponent(auth.value)}`
       result.headers[HeaderName.COOKIE] = existing ? `${existing}; ${cookie}` : cookie
       break
     }

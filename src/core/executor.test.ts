@@ -552,6 +552,55 @@ describe('per-call auth override', () => {
   })
 })
 
+// === redirect option ===
+
+describe('redirect option', () => {
+  it('passes redirect to fetch', async () => {
+    const fetch = mockFetch()
+    await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch, redirect: 'manual' }
+    )
+    const [, init] = fetch.mock.calls[0]
+    expect(init.redirect).toBe('manual')
+  })
+
+  it('defaults to undefined when not set', async () => {
+    const fetch = mockFetch()
+    await executeOperation(
+      baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
+    )
+    const [, init] = fetch.mock.calls[0]
+    expect(init.redirect).toBeUndefined()
+  })
+})
+
+// === cookie params + cookie auth combination ===
+
+describe('cookie params combined with cookie auth', () => {
+  it('preserves both cookie params and cookie auth in Cookie header', async () => {
+    const fetch = mockFetch()
+    const op: Operation = {
+      id: 'test',
+      path: '/data',
+      method: HttpMethod.GET,
+      parameters: [
+        { name: 'session', in: ParamLocation.COOKIE, required: false, description: '', schema: { type: 'string' } },
+      ],
+      tags: [],
+    }
+    await executeOperation(baseUrl, op, { session: 'abc123' }, {
+      fetch,
+      auth: { type: AuthType.COOKIE, name: 'csrf', value: 'tok456' },
+    })
+    const [, init] = fetch.mock.calls[0]
+    const cookie = init.headers[HeaderName.COOKIE]
+    expect(cookie).toContain('session')
+    expect(cookie).toContain('abc123')
+    expect(cookie).toContain('csrf')
+    expect(cookie).toContain('tok456')
+  })
+})
+
 // === buildRequest (dry-run) ===
 
 describe('buildRequest', () => {

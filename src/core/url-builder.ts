@@ -77,7 +77,8 @@ export function extractHeaderParams(
 
 /**
  * Extract cookie parameters from operation args as a Cookie header value.
- * Returns undefined if no cookie params are present.
+ * Uses schema defaults when the arg is not explicitly supplied.
+ * Returns undefined if no cookie params are present or provided.
  */
 export function extractCookieParams(
   parameters: Parameter[],
@@ -88,7 +89,7 @@ export function extractCookieParams(
     if (param.in === ParamLocation.COOKIE) {
       const value = args[param.name] ?? param.schema.default
       if (value !== undefined && value !== null) {
-        cookies.push(`${param.name}=${String(value)}`)
+        cookies.push(`${encodeURIComponent(param.name)}=${encodeURIComponent(String(value))}`)
       }
     }
   }

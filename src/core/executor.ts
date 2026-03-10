@@ -21,7 +21,6 @@ import {
 const ABORT_ERROR_NAME = 'AbortError'
 const OPAQUE_RESPONSE_TYPE = 'opaque'
 const NO_CORS_MODE = 'no-cors'
-const CONTENT_TYPE_HEADER_LOWER = 'content-type'
 const JSON_SUFFIX = '+json'
 const XML_SUBTYPE = '/xml'
 const XML_SUFFIX = '+xml'
@@ -29,25 +28,25 @@ const XML_SUFFIX = '+xml'
 /** Options for buildRequest() — only request-construction concerns, no runtime/execution options. */
 export interface BuildRequestOptions {
   auth?: Auth | Auth[]
-  /** Override the Accept header. Defaults to operation.responseContentType or 'application/json'. */
+  /** Override the Accept header. Defaults to operation.responseContentType or ContentType.JSON. */
   accept?: string
 }
 
 export interface ExecuteOptions extends BuildRequestOptions {
   middleware?: Middleware[]
   fetch?: typeof globalThis.fetch
-  /** If false, return ExecutionResult for all HTTP statuses instead of throwing. Default: true. */
+  /** If false, return ExecutionResult for all HTTP errors instead of throwing. Client-side errors (CORS, network, timeout) always throw regardless. Default: true. */
   throwOnHttpError?: boolean
   /** Timeout in milliseconds. 0 = no timeout (default). */
   timeoutMs?: number
   /** AbortSignal to cancel the request. */
   signal?: AbortSignal
-  /** Redirect behavior. Default: 'follow'. */
+  /** Redirect behavior passed to fetch. Unset by default (fetch implementations typically default to 'follow'). */
   redirect?: RequestInit['redirect']
 }
 
 export interface BuiltRequest {
-  method: string
+  method: HttpMethod | string
   url: string
   headers: Record<string, string>
   body?: string
@@ -243,7 +242,7 @@ export async function executeOperation(
   // Parse response body based on content type
   // Handles JSON (including +json variants like application/vnd.api+json), binary, and XML
   let data: unknown
-  const contentType = response.headers.get(CONTENT_TYPE_HEADER_LOWER) || ''
+  const contentType = response.headers.get(HeaderName.CONTENT_TYPE) || ''
   if (contentType.includes(ContentType.JSON) || contentType.includes(JSON_SUFFIX)) {
     const cloned = response.clone()
     try {
@@ -327,7 +326,7 @@ export async function executeRaw(
     method?: string
     headers?: Record<string, string>
     body?: string
-    auth?: Auth
+    auth?: Auth | Auth[]
     middleware?: Middleware[]
     fetch?: typeof globalThis.fetch
     timeoutMs?: number
@@ -340,7 +339,7 @@ export async function executeRaw(
   const operation: Operation = {
     id: 'raw',
     path: '',
-    method: (options.method ?? HttpMethod.GET) as string,
+    method: options.method ?? HttpMethod.GET,
     parameters: [],
     tags: [],
   }

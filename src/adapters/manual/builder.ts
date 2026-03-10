@@ -8,7 +8,7 @@
  *     .get('/users', { id: 'listUsers', summary: 'List all users' })
  *     .post('/users', {
  *       id: 'createUser',
- *       body: { contentType: 'application/json', properties: { name: 'string', email: 'string' } },
+ *       body: { contentType: ContentType.JSON, properties: { name: 'string', email: 'string' } },
  *     })
  *     .build()
  */
@@ -27,7 +27,7 @@ export interface EndpointOptions {
 }
 
 export type ParamDef = {
-  in?: typeof ParamLocation.QUERY | typeof ParamLocation.PATH | typeof ParamLocation.HEADER
+  in?: typeof ParamLocation.QUERY | typeof ParamLocation.PATH | typeof ParamLocation.HEADER | typeof ParamLocation.COOKIE
   required?: boolean
   type?: string
   description?: string
