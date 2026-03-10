@@ -1,15 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { buildUrl, deriveBaseUrl } from './url-builder'
+import { buildUrl, deriveBaseUrl, extractCookieParams } from './url-builder'
 import type { Operation } from './types'
+import { HttpMethod, ParamLocation } from './types'
 
 describe('buildUrl', () => {
   const baseOp: Operation = {
     id: 'test',
     path: '/users/{id}',
-    method: 'GET',
+    method: HttpMethod.GET,
     parameters: [
-      { name: 'id', in: 'path', required: true, description: '', schema: { type: 'string' } },
-      { name: 'limit', in: 'query', required: false, description: '', schema: { type: 'number' } },
+      { name: 'id', in: ParamLocation.PATH, required: true, description: '', schema: { type: 'string' } },
+      { name: 'limit', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'number' } },
     ],
     tags: [],
   }
@@ -45,9 +46,9 @@ describe('default parameter values', () => {
     const op: Operation = {
       id: 'test',
       path: '/items',
-      method: 'GET',
+      method: HttpMethod.GET,
       parameters: [
-        { name: 'format', in: 'query', required: false, description: '', schema: { type: 'string', default: 'json' } },
+        { name: 'format', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'string', default: 'json' } },
       ],
       tags: [],
     }
@@ -59,9 +60,9 @@ describe('default parameter values', () => {
     const op: Operation = {
       id: 'test',
       path: '/items',
-      method: 'GET',
+      method: HttpMethod.GET,
       parameters: [
-        { name: 'format', in: 'query', required: false, description: '', schema: { type: 'string', default: 'json' } },
+        { name: 'format', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'string', default: 'json' } },
       ],
       tags: [],
     }
@@ -75,9 +76,9 @@ describe('array/object query param serialization', () => {
     const op: Operation = {
       id: 'test',
       path: '/items',
-      method: 'GET',
+      method: HttpMethod.GET,
       parameters: [
-        { name: 'tags', in: 'query', required: false, description: '', schema: { type: 'array' } },
+        { name: 'tags', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'array' } },
       ],
       tags: [],
     }
@@ -89,9 +90,9 @@ describe('array/object query param serialization', () => {
     const op: Operation = {
       id: 'test',
       path: '/items',
-      method: 'GET',
+      method: HttpMethod.GET,
       parameters: [
-        { name: 'filter', in: 'query', required: false, description: '', schema: { type: 'object' } },
+        { name: 'filter', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'object' } },
       ],
       tags: [],
     }
@@ -103,9 +104,9 @@ describe('array/object query param serialization', () => {
     const op: Operation = {
       id: 'test',
       path: '/items',
-      method: 'GET',
+      method: HttpMethod.GET,
       parameters: [
-        { name: 'filter', in: 'query', required: false, description: '', schema: { type: 'object' } },
+        { name: 'filter', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'object' } },
       ],
       tags: [],
     }
@@ -117,9 +118,9 @@ describe('array/object query param serialization', () => {
     const op: Operation = {
       id: 'test',
       path: '/items',
-      method: 'GET',
+      method: HttpMethod.GET,
       parameters: [
-        { name: 'tags', in: 'query', required: false, description: '', schema: { type: 'array' } },
+        { name: 'tags', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'array' } },
       ],
       tags: [],
     }
@@ -131,9 +132,9 @@ describe('array/object query param serialization', () => {
     const op: Operation = {
       id: 'test',
       path: '/items',
-      method: 'GET',
+      method: HttpMethod.GET,
       parameters: [
-        { name: 'q', in: 'query', required: false, description: '', schema: { type: 'string' } },
+        { name: 'q', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'string' } },
       ],
       tags: [],
     }
@@ -155,5 +156,37 @@ describe('deriveBaseUrl', () => {
 
   it('returns empty for invalid URL', () => {
     expect(deriveBaseUrl('not-a-url')).toBe('')
+  })
+})
+
+describe('extractCookieParams', () => {
+  it('extracts cookie parameters', () => {
+    const params = [
+      { name: 'session', in: ParamLocation.COOKIE, required: false, description: '', schema: { type: 'string' } },
+      { name: 'q', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'string' } },
+    ]
+    expect(extractCookieParams(params, { session: 'abc123' })).toBe('session=abc123')
+  })
+
+  it('joins multiple cookies with semicolon', () => {
+    const params = [
+      { name: 'session', in: ParamLocation.COOKIE, required: false, description: '', schema: { type: 'string' } },
+      { name: 'theme', in: ParamLocation.COOKIE, required: false, description: '', schema: { type: 'string' } },
+    ]
+    expect(extractCookieParams(params, { session: 'abc', theme: 'dark' })).toBe('session=abc; theme=dark')
+  })
+
+  it('returns undefined when no cookie params', () => {
+    const params = [
+      { name: 'q', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'string' } },
+    ]
+    expect(extractCookieParams(params, { q: 'test' })).toBeUndefined()
+  })
+
+  it('uses default values for cookie params', () => {
+    const params = [
+      { name: 'lang', in: ParamLocation.COOKIE, required: false, description: '', schema: { type: 'string', default: 'en' } },
+    ]
+    expect(extractCookieParams(params, {})).toBe('lang=en')
   })
 })

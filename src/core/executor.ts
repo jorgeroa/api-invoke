@@ -4,10 +4,11 @@
  */
 
 import type { Auth, ExecutionResult, Middleware, Operation } from './types'
-import { ContentType, HttpMethod } from './types'
-import { buildUrl, extractHeaderParams } from './url-builder'
+import { ContentType, HeaderName, HttpMethod } from './types'
+import { buildUrl, extractHeaderParams, extractCookieParams } from './url-builder'
 import { injectAuth } from './auth'
 import {
+  API_INVOKE_ERROR_NAME,
   ErrorKind,
   authError,
   corsError,
@@ -17,8 +18,22 @@ import {
   timeoutError,
 } from './errors'
 
-export interface ExecuteOptions {
-  auth?: Auth
+const ABORT_ERROR_NAME = 'AbortError'
+const OPAQUE_RESPONSE_TYPE = 'opaque'
+const NO_CORS_MODE = 'no-cors'
+const CONTENT_TYPE_HEADER_LOWER = 'content-type'
+const JSON_SUFFIX = '+json'
+const XML_SUBTYPE = '/xml'
+const XML_SUFFIX = '+xml'
+
+/** Options for buildRequest() — only request-construction concerns, no runtime/execution options. */
+export interface BuildRequestOptions {
+  auth?: Auth | Auth[]
+  /** Override the Accept header. Defaults to operation.responseContentType or 'application/json'. */
+  accept?: string
+}
+
+export interface ExecuteOptions extends BuildRequestOptions {
   middleware?: Middleware[]
   fetch?: typeof globalThis.fetch
   /** If false, return ExecutionResult for all HTTP statuses instead of throwing. Default: true. */
@@ -27,22 +42,27 @@ export interface ExecuteOptions {
   timeoutMs?: number
   /** AbortSignal to cancel the request. */
   signal?: AbortSignal
-  /** Override the Accept header. Defaults to operation.responseContentType or 'application/json'. */
-  accept?: string
+  /** Redirect behavior. Default: 'follow'. */
+  redirect?: RequestInit['redirect']
+}
+
+export interface BuiltRequest {
+  method: string
+  url: string
+  headers: Record<string, string>
+  body?: string
 }
 
 /**
- * Execute an API call for an operation with arguments.
- * Builds the URL, injects auth, applies middleware, classifies errors.
+ * Build a request without executing it (dry-run / preview).
+ * Validates parameters, assembles the body, and injects auth — but does not send.
  */
-export async function executeOperation(
+export function buildRequest(
   baseUrl: string,
   operation: Operation,
   args: Record<string, unknown>,
-  options: ExecuteOptions = {},
-): Promise<ExecutionResult> {
-  const fetchFn = options.fetch ?? globalThis.fetch
-
+  options: BuildRequestOptions = {},
+): BuiltRequest {
   // Validate required parameters
   const missing = operation.parameters
     .filter(p => p.required && args[p.name] === undefined)
@@ -57,10 +77,16 @@ export async function executeOperation(
   let url = buildUrl(baseUrl, operation, args)
   const method = operation.method.toUpperCase()
 
-  const accept = options.accept || operation.responseContentType || 'application/json'
+  const accept = options.accept || operation.responseContentType || ContentType.JSON
   const headers: Record<string, string> = {
-    'Accept': accept,
+    [HeaderName.ACCEPT]: accept,
     ...extractHeaderParams(operation.parameters, args),
+  }
+
+  // Inject cookie parameters as Cookie header
+  const cookieHeader = extractCookieParams(operation.parameters, args)
+  if (cookieHeader) {
+    headers[HeaderName.COOKIE] = cookieHeader
   }
 
   // Assemble body from flat args if no explicit 'body' key and operation has a requestBody
@@ -94,10 +120,10 @@ export async function executeOperation(
         }
       }
       body = params.toString()
-      headers['Content-Type'] = ContentType.FORM_URLENCODED
+      headers[HeaderName.CONTENT_TYPE] = ContentType.FORM_URLENCODED
     } else {
       body = typeof bodyData === 'string' ? bodyData : JSON.stringify(bodyData)
-      headers['Content-Type'] = ContentType.JSON
+      headers[HeaderName.CONTENT_TYPE] = ContentType.JSON
     }
   }
 
@@ -107,6 +133,26 @@ export async function executeOperation(
     url = authed.url
     Object.assign(headers, authed.headers)
   }
+
+  return { method, url, headers, body }
+}
+
+/**
+ * Execute an API call for an operation with arguments.
+ * Builds the URL, injects auth, applies middleware, classifies errors.
+ */
+export async function executeOperation(
+  baseUrl: string,
+  operation: Operation,
+  args: Record<string, unknown>,
+  options: ExecuteOptions = {},
+): Promise<ExecutionResult> {
+  const fetchFn = options.fetch ?? globalThis.fetch
+
+  let { method, url, headers, body } = buildRequest(baseUrl, operation, args, {
+    auth: options.auth,
+    accept: options.accept,
+  })
 
   // Build abort signal (timeout + caller signal)
   let signal: AbortSignal | undefined = options.signal
@@ -123,7 +169,7 @@ export async function executeOperation(
     signal = controller.signal
   }
 
-  let init: RequestInit = { method, headers, body, signal }
+  let init: RequestInit = { method, headers, body, signal, redirect: options.redirect }
 
   // Apply request middleware
   if (options.middleware) {
@@ -152,7 +198,7 @@ export async function executeOperation(
     }
 
     // Abort errors (timeout or caller cancellation)
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (error instanceof DOMException && error.name === ABORT_ERROR_NAME) {
       if (options.timeoutMs && options.timeoutMs > 0) {
         throw timeoutError(url)
       }
@@ -161,14 +207,15 @@ export async function executeOperation(
 
     if (error instanceof TypeError) {
       // TypeError: Failed to fetch — CORS or network issue
-      // Heuristic: try no-cors to distinguish (browser-only)
-      try {
-        const probe = await fetchFn(url, { mode: 'no-cors' })
-        if (probe.type === 'opaque') throw corsError(url)
-      } catch (probeError) {
-        // Re-throw if the probe identified a CORS error; swallow other probe failures
-        // since the probe is a best-effort heuristic (browser-only)
-        if (probeError instanceof Error && probeError.name === 'ApiInvokeError') throw probeError
+      // Heuristic: try no-cors to distinguish (browser-only, skip in Node.js)
+      if (typeof window !== 'undefined') {
+        try {
+          const probe = await fetchFn(url, { mode: NO_CORS_MODE })
+          if (probe.type === OPAQUE_RESPONSE_TYPE) throw corsError(url)
+        } catch (probeError) {
+          // Re-throw if the probe identified a CORS error; swallow other probe failures
+          if (probeError instanceof Error && probeError.name === API_INVOKE_ERROR_NAME) throw probeError
+        }
       }
       throw networkError(url)
     }
@@ -196,8 +243,8 @@ export async function executeOperation(
   // Parse response body based on content type
   // Handles JSON (including +json variants like application/vnd.api+json), binary, and XML
   let data: unknown
-  const contentType = response.headers.get('content-type') || ''
-  if (contentType.includes('application/json') || contentType.includes('+json')) {
+  const contentType = response.headers.get(CONTENT_TYPE_HEADER_LOWER) || ''
+  if (contentType.includes(ContentType.JSON) || contentType.includes(JSON_SUFFIX)) {
     const cloned = response.clone()
     try {
       data = await response.json()
@@ -218,7 +265,7 @@ export async function executeOperation(
     } catch {
       throw parseError(url, 'binary')
     }
-  } else if (contentType.includes('/xml') || contentType.includes('+xml')) {
+  } else if (contentType.includes(XML_SUBTYPE) || contentType.includes(XML_SUFFIX)) {
     try {
       data = await response.text()
     } catch {
@@ -244,7 +291,7 @@ export async function executeOperation(
     data,
     contentType,
     headers: responseHeaders,
-    request: { method, url, headers },
+    request: { method, url, headers, body },
     elapsedMs,
   }
 
@@ -286,13 +333,14 @@ export async function executeRaw(
     timeoutMs?: number
     signal?: AbortSignal
     accept?: string
+    redirect?: RequestInit['redirect']
   } = {},
 ): Promise<ExecutionResult> {
   // Create a synthetic operation for the raw request
   const operation: Operation = {
     id: 'raw',
     path: '',
-    method: (options.method ?? 'GET') as string,
+    method: (options.method ?? HttpMethod.GET) as string,
     parameters: [],
     tags: [],
   }
@@ -304,6 +352,7 @@ export async function executeRaw(
     timeoutMs: options.timeoutMs,
     signal: options.signal,
     accept: options.accept,
+    redirect: options.redirect,
   })
 }
 

@@ -76,6 +76,26 @@ export function extractHeaderParams(
 }
 
 /**
+ * Extract cookie parameters from operation args as a Cookie header value.
+ * Returns undefined if no cookie params are present.
+ */
+export function extractCookieParams(
+  parameters: Parameter[],
+  args: Record<string, unknown>,
+): string | undefined {
+  const cookies: string[] = []
+  for (const param of parameters) {
+    if (param.in === ParamLocation.COOKIE) {
+      const value = args[param.name] ?? param.schema.default
+      if (value !== undefined && value !== null) {
+        cookies.push(`${param.name}=${String(value)}`)
+      }
+    }
+  }
+  return cookies.length > 0 ? cookies.join('; ') : undefined
+}
+
+/**
  * Serialize a query parameter value onto a URL.
  * Arrays use comma-separated format (OpenAPI "form" style, explode=false).
  * Objects use comma-separated key,value pairs (OpenAPI "form" style, explode=false).

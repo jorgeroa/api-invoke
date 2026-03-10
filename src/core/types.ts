@@ -33,6 +33,7 @@ export const AuthType = {
   API_KEY: 'apiKey',
   QUERY_PARAM: 'queryParam',
   OAUTH2: 'oauth2',
+  COOKIE: 'cookie',
 } as const
 export type AuthType = (typeof AuthType)[keyof typeof AuthType]
 
@@ -43,6 +44,14 @@ export const SpecFormat = {
   MANUAL: 'manual',
 } as const
 export type SpecFormat = (typeof SpecFormat)[keyof typeof SpecFormat]
+
+export const HeaderName = {
+  ACCEPT: 'Accept',
+  AUTHORIZATION: 'Authorization',
+  CONTENT_TYPE: 'Content-Type',
+  COOKIE: 'Cookie',
+} as const
+export type HeaderName = (typeof HeaderName)[keyof typeof HeaderName]
 
 // === Parsed API (spec-agnostic) ===
 
@@ -134,10 +143,11 @@ export interface AuthScheme {
 }
 
 export type Auth =
-  | { type: 'bearer'; token: string }
-  | { type: 'basic'; username: string; password: string }
-  | { type: 'apiKey'; location: 'header' | 'query'; name: string; value: string }
-  | { type: 'oauth2'; accessToken: string }
+  | { type: typeof AuthType.BEARER; token: string }
+  | { type: typeof AuthType.BASIC; username: string; password: string }
+  | { type: typeof AuthType.API_KEY; location: typeof ParamLocation.HEADER | typeof ParamLocation.QUERY; name: string; value: string }
+  | { type: typeof AuthType.OAUTH2; accessToken: string }
+  | { type: typeof AuthType.COOKIE; name: string; value: string }
 
 // === Execution ===
 
@@ -150,7 +160,7 @@ export interface ExecutionResult {
   /** Response content type (e.g. 'application/json', 'text/xml'). */
   contentType: string
   headers: Record<string, string>
-  request: { method: string; url: string; headers: Record<string, string> }
+  request: { method: string; url: string; headers: Record<string, string>; body?: string }
   elapsedMs: number
   /** Set when throwOnHttpError is false and the response is an error. Allows programmatic error classification without throwing. */
   errorKind?: ResultErrorKind
@@ -167,7 +177,7 @@ export interface Enricher {
 
 export interface ClientOptions {
   specUrl?: string
-  auth?: Auth
+  auth?: Auth | Auth[]
   middleware?: Middleware[]
   fetch?: typeof globalThis.fetch
   enricher?: Enricher

@@ -1,10 +1,10 @@
 /**
  * Authentication injection into HTTP requests.
- * Supports Bearer, Basic, API Key (header/query), and OAuth2.
+ * Supports Bearer, Basic, API Key (header/query), OAuth2, and Cookie.
  */
 
 import type { Auth } from './types'
-import { AuthType, ParamLocation } from './types'
+import { AuthType, HeaderName, ParamLocation } from './types'
 
 export interface AuthenticatedRequest {
   url: string
@@ -13,23 +13,32 @@ export interface AuthenticatedRequest {
 
 /**
  * Inject authentication credentials into a request URL and headers.
+ * Accepts a single Auth or an array for composing multiple schemes (e.g. API key + bearer).
  */
 export function injectAuth(
   url: string,
   headers: Record<string, string>,
-  auth: Auth,
+  auth: Auth | Auth[],
 ): AuthenticatedRequest {
+  if (Array.isArray(auth)) {
+    let result: AuthenticatedRequest = { url, headers: { ...headers } }
+    for (const a of auth) {
+      result = injectAuth(result.url, result.headers, a)
+    }
+    return result
+  }
+
   const result = { url, headers: { ...headers } }
 
   switch (auth.type) {
     case AuthType.BEARER:
-      result.headers['Authorization'] = `Bearer ${auth.token}`
+      result.headers[HeaderName.AUTHORIZATION] = `Bearer ${auth.token}`
       break
 
     case AuthType.BASIC: {
       // btoa is available in all modern browsers and Node 16+
       const encoded = btoa(`${auth.username}:${auth.password}`)
-      result.headers['Authorization'] = `Basic ${encoded}`
+      result.headers[HeaderName.AUTHORIZATION] = `Basic ${encoded}`
       break
     }
 
@@ -44,8 +53,15 @@ export function injectAuth(
       break
 
     case AuthType.OAUTH2:
-      result.headers['Authorization'] = `Bearer ${auth.accessToken}`
+      result.headers[HeaderName.AUTHORIZATION] = `Bearer ${auth.accessToken}`
       break
+
+    case AuthType.COOKIE: {
+      const existing = result.headers[HeaderName.COOKIE]
+      const cookie = `${auth.name}=${auth.value}`
+      result.headers[HeaderName.COOKIE] = existing ? `${existing}; ${cookie}` : cookie
+      break
+    }
   }
 
   return result
@@ -66,5 +82,7 @@ export function maskAuth(auth: Auth): string {
       return `${auth.name}: ***`
     case AuthType.OAUTH2:
       return `OAuth2 ***`
+    case AuthType.COOKIE:
+      return `Cookie ${auth.name}=***`
   }
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { defineAPI } from './builder'
+import { ContentType, HttpMethod, ParamLocation } from '../../core/types'
 
 describe('defineAPI builder', () => {
   it('creates a basic API with GET endpoint', () => {
@@ -12,7 +13,7 @@ describe('defineAPI builder', () => {
     expect(api.baseUrl).toBe('https://api.example.com')
     expect(api.operations).toHaveLength(1)
     expect(api.operations[0].id).toBe('listUsers')
-    expect(api.operations[0].method).toBe('GET')
+    expect(api.operations[0].method).toBe(HttpMethod.GET)
     expect(api.operations[0].path).toBe('/users')
   })
 
@@ -27,7 +28,9 @@ describe('defineAPI builder', () => {
       .build()
 
     expect(api.operations).toHaveLength(5)
-    expect(api.operations.map(o => o.method)).toEqual(['GET', 'POST', 'GET', 'PUT', 'DELETE'])
+    expect(api.operations.map(o => o.method)).toEqual([
+      HttpMethod.GET, HttpMethod.POST, HttpMethod.GET, HttpMethod.PUT, HttpMethod.DELETE,
+    ])
   })
 
   it('auto-detects path parameters from path template', () => {
@@ -37,7 +40,7 @@ describe('defineAPI builder', () => {
       .build()
 
     const op = api.operations[0]
-    const pathParams = op.parameters.filter(p => p.in === 'path')
+    const pathParams = op.parameters.filter(p => p.in === ParamLocation.PATH)
     expect(pathParams).toHaveLength(2)
     expect(pathParams[0].name).toBe('userId')
     expect(pathParams[0].required).toBe(true)
@@ -56,7 +59,7 @@ describe('defineAPI builder', () => {
       .build()
 
     const op = api.operations[0]
-    const queryParams = op.parameters.filter(p => p.in === 'query')
+    const queryParams = op.parameters.filter(p => p.in === ParamLocation.QUERY)
     expect(queryParams).toHaveLength(2)
     expect(queryParams[0].name).toBe('limit')
     expect(queryParams[0].schema.default).toBe(10)
@@ -80,7 +83,7 @@ describe('defineAPI builder', () => {
 
     const op = api.operations[0]
     expect(op.requestBody).toBeDefined()
-    expect(op.requestBody!.contentType).toBe('application/json')
+    expect(op.requestBody!.contentType).toBe(ContentType.JSON)
     expect(op.requestBody!.schema.properties!['name'].type).toBe('string')
     expect(op.requestBody!.schema.properties!['age'].description).toBe('User age')
     expect(op.requestBody!.schema.required).toEqual(['name'])
@@ -91,13 +94,13 @@ describe('defineAPI builder', () => {
       .baseUrl('https://api.example.com')
       .post('/oauth/token', {
         body: {
-          contentType: 'application/x-www-form-urlencoded',
+          contentType: ContentType.FORM_URLENCODED,
           properties: { grant_type: 'string', client_id: 'string' },
         },
       })
       .build()
 
-    expect(api.operations[0].requestBody!.contentType).toBe('application/x-www-form-urlencoded')
+    expect(api.operations[0].requestBody!.contentType).toBe(ContentType.FORM_URLENCODED)
   })
 
   it('generates stable IDs from method and path', () => {
@@ -142,7 +145,7 @@ describe('defineAPI builder', () => {
       .patch('/users/{id}', { id: 'patchUser' })
       .build()
 
-    expect(api.operations[0].method).toBe('PATCH')
+    expect(api.operations[0].method).toBe(HttpMethod.PATCH)
   })
 
   it('supports responseContentType', () => {

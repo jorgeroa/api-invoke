@@ -29,6 +29,7 @@ export {
   ParamLocation,
   AuthType,
   ContentType,
+  HeaderName,
   SpecFormat,
 } from './core/types'
 
@@ -45,8 +46,8 @@ export {
 } from './core/errors'
 
 // Execution
-export { executeOperation, executeRaw } from './core/executor'
-export type { ExecuteOptions } from './core/executor'
+export { executeOperation, executeRaw, buildRequest } from './core/executor'
+export type { ExecuteOptions, BuildRequestOptions, BuiltRequest } from './core/executor'
 
 // URL utilities
 export { buildUrl, deriveBaseUrl } from './core/url-builder'

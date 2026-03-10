@@ -14,6 +14,8 @@ export const ErrorKind = {
 } as const
 export type ErrorKind = (typeof ErrorKind)[keyof typeof ErrorKind]
 
+export const API_INVOKE_ERROR_NAME = 'ApiInvokeError' as const
+
 export class ApiInvokeError extends Error {
   readonly kind: ErrorKind | string
   readonly status?: number
@@ -31,7 +33,7 @@ export class ApiInvokeError extends Error {
     responseBody?: unknown
   }) {
     super(opts.message)
-    this.name = 'ApiInvokeError'
+    this.name = API_INVOKE_ERROR_NAME
     this.kind = opts.kind
     this.suggestion = opts.suggestion
     this.retryable = opts.retryable ?? false

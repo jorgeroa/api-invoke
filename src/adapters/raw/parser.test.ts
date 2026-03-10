@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { parseRawUrl, parseRawUrls } from './parser'
+import { HttpMethod } from '../../core/types'
 
 describe('parseRawUrl', () => {
   it('creates a single operation from a URL', () => {
     const api = parseRawUrl('https://api.example.com/users')
     expect(api.operations).toHaveLength(1)
-    expect(api.operations[0].method).toBe('GET')
+    expect(api.operations[0].method).toBe(HttpMethod.GET)
     expect(api.operations[0].path).toBe('/users')
   })
 
@@ -28,14 +29,14 @@ describe('parseRawUrl', () => {
 describe('parseRawUrls', () => {
   it('creates multiple operations from multiple URLs', () => {
     const api = parseRawUrls([
-      { url: 'https://api.example.com/users', method: 'GET' },
-      { url: 'https://api.example.com/users', method: 'POST' },
-      { url: 'https://api.example.com/users/123', method: 'DELETE' },
+      { url: 'https://api.example.com/users', method: HttpMethod.GET },
+      { url: 'https://api.example.com/users', method: HttpMethod.POST },
+      { url: 'https://api.example.com/users/123', method: HttpMethod.DELETE },
     ])
     expect(api.operations).toHaveLength(3)
-    expect(api.operations[0].method).toBe('GET')
-    expect(api.operations[1].method).toBe('POST')
-    expect(api.operations[2].method).toBe('DELETE')
+    expect(api.operations[0].method).toBe(HttpMethod.GET)
+    expect(api.operations[1].method).toBe(HttpMethod.POST)
+    expect(api.operations[2].method).toBe(HttpMethod.DELETE)
   })
 
   it('derives baseUrl from first endpoint origin', () => {
@@ -55,7 +56,7 @@ describe('parseRawUrls', () => {
 
   it('generates ids from method and path', () => {
     const api = parseRawUrls([
-      { url: 'https://api.example.com/users', method: 'POST' },
+      { url: 'https://api.example.com/users', method: HttpMethod.POST },
     ])
     expect(api.operations[0].id).toBe('post_users')
   })
@@ -68,7 +69,7 @@ describe('parseRawUrls', () => {
     const api = parseRawUrls([
       { url: 'https://api.example.com/data' },
     ])
-    expect(api.operations[0].method).toBe('GET')
+    expect(api.operations[0].method).toBe(HttpMethod.GET)
   })
 
   it('throws for mixed origins', () => {

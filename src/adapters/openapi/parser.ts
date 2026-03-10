@@ -15,12 +15,13 @@ import type {
   RequestBodyProperty,
   ParamLocation,
 } from '../../core/types'
-import { ContentType, SpecFormat } from '../../core/types'
+import { ContentType, HttpMethod, SpecFormat } from '../../core/types'
 import { extractOpenAPI3BaseUrl, extractSwagger2BaseUrl } from './base-url'
 import { mapSecuritySchemes } from './security'
 import { deriveBaseUrl } from '../../core/url-builder'
 
-const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
+/** OpenAPI path item keys are lowercase; derive from HttpMethod to stay in sync. */
+const SUPPORTED_METHODS = Object.values(HttpMethod).map(m => m.toLowerCase())
 
 /**
  * Normalize an OpenAPI schema type field to a single type string.
@@ -297,7 +298,7 @@ function extractResponseSchema(
 
   if (isOpenAPI3) {
     const resp = successResponse as OpenAPIV3.ResponseObject
-    return resp.content?.['application/json']?.schema
+    return resp.content?.[ContentType.JSON]?.schema
   } else {
     return (successResponse as OpenAPIV2.ResponseObject).schema
   }
@@ -320,14 +321,14 @@ function extractResponseContentType(
     if (!resp.content) return undefined
     // Return first content type, preferring application/json
     const types = Object.keys(resp.content)
-    if (types.includes('application/json')) return 'application/json'
+    if (types.includes(ContentType.JSON)) return ContentType.JSON
     return types[0]
   } else {
     // Swagger 2.0: check operation-level `produces`
     const op = operation as OpenAPIV2.OperationObject
     const produces = op.produces
     if (produces && produces.length > 0) {
-      if (produces.includes('application/json')) return 'application/json'
+      if (produces.includes(ContentType.JSON)) return ContentType.JSON
       return produces[0]
     }
     return undefined // No operation-level produces; caller falls back to default Accept header

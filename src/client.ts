@@ -9,7 +9,7 @@ import { parseOpenAPISpec } from './adapters/openapi/parser'
 import { parseRawUrl } from './adapters/raw/parser'
 
 /**
- * Heuristic: detect if a URL points to an OpenAPI/Swagger spec.
+ * Heuristic: detect if a URL points to an OpenAPI/Swagger spec by URL pattern.
  */
 function isSpecUrl(url: string): boolean {
   const lower = url.toLowerCase()
@@ -33,9 +33,19 @@ function isSpecUrl(url: string): boolean {
   )
 }
 
+/**
+ * Heuristic: detect if a parsed JSON object looks like an OpenAPI/Swagger spec by content.
+ */
+function isSpecContent(obj: Record<string, unknown>): boolean {
+  return (
+    typeof obj.openapi === 'string' ||
+    typeof obj.swagger === 'string'
+  )
+}
+
 export class ApiInvokeClient {
   readonly api: ParsedAPI
-  private auth: Auth | undefined
+  private auth: Auth | Auth[] | undefined
   private middleware: Middleware[]
   private fetchFn: typeof globalThis.fetch
   private timeoutMs: number
@@ -66,7 +76,7 @@ export class ApiInvokeClient {
   /**
    * Set authentication credentials.
    */
-  setAuth(auth: Auth): void {
+  setAuth(auth: Auth | Auth[]): void {
     this.auth = auth
   }
 
@@ -90,7 +100,7 @@ export class ApiInvokeClient {
   async execute(
     operationId: string,
     args: Record<string, unknown> = {},
-    options?: { auth?: Auth; accept?: string; throwOnHttpError?: boolean },
+    options?: { auth?: Auth | Auth[]; accept?: string; throwOnHttpError?: boolean; redirect?: RequestInit['redirect'] },
   ): Promise<ExecutionResult> {
     const operation = this.findOperation(operationId)
     if (!operation) {
@@ -104,6 +114,7 @@ export class ApiInvokeClient {
       timeoutMs: this.timeoutMs,
       accept: options?.accept,
       throwOnHttpError: options?.throwOnHttpError,
+      redirect: options?.redirect,
     })
   }
 
@@ -124,25 +135,10 @@ export async function createClient(
 
   if (typeof input === 'string') {
     if (isSpecUrl(input)) {
-      // Fetch and parse OpenAPI spec
-      const fetchFn = options.fetch ?? globalThis.fetch
-      const response = await fetchFn(input)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch spec: ${response.status} ${response.statusText}`)
-      }
-      const text = await response.text()
-      let specObject: object
-      try {
-        specObject = JSON.parse(text)
-      } catch {
-        // YAML or other format — let SwaggerParser resolve the URL directly
-        api = await parseOpenAPISpec(input, { specUrl: input })
-        return finalize(api, options)
-      }
-      api = await parseOpenAPISpec(specObject, { specUrl: input })
+      api = await fetchAndParseSpec(input, options)
     } else {
-      // Raw URL mode
-      api = parseRawUrl(input)
+      // URL doesn't match spec patterns — try content-based detection
+      api = await tryContentDetection(input, options)
     }
   } else {
     // Spec object passed directly
@@ -150,6 +146,44 @@ export async function createClient(
   }
 
   return finalize(api, options)
+}
+
+async function fetchAndParseSpec(url: string, options: ClientOptions): Promise<ParsedAPI> {
+  const fetchFn = options.fetch ?? globalThis.fetch
+  const response = await fetchFn(url)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch spec: ${response.status} ${response.statusText}`)
+  }
+  const text = await response.text()
+  let specObject: object
+  try {
+    specObject = JSON.parse(text)
+  } catch {
+    // YAML or other format — let SwaggerParser resolve the URL directly
+    return parseOpenAPISpec(url, { specUrl: url })
+  }
+  return parseOpenAPISpec(specObject, { specUrl: url })
+}
+
+async function tryContentDetection(url: string, options: ClientOptions): Promise<ParsedAPI> {
+  const fetchFn = options.fetch ?? globalThis.fetch
+  try {
+    const response = await fetchFn(url)
+    if (response.ok) {
+      const text = await response.text()
+      try {
+        const obj = JSON.parse(text) as Record<string, unknown>
+        if (isSpecContent(obj)) {
+          return parseOpenAPISpec(obj, { specUrl: url })
+        }
+      } catch {
+        // Not JSON — not a spec
+      }
+    }
+  } catch {
+    // Fetch failed — fall through to raw URL mode
+  }
+  return parseRawUrl(url)
 }
 
 async function finalize(api: ParsedAPI, options: ClientOptions): Promise<ApiInvokeClient> {

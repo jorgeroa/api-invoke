@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { executeOperation, executeRaw } from './executor'
+import { executeOperation, executeRaw, buildRequest } from './executor'
 import type { Operation } from './types'
-import { ContentType } from './types'
+import { AuthType, ContentType, HeaderName, HttpMethod, ParamLocation } from './types'
+import { ErrorKind, API_INVOKE_ERROR_NAME } from './errors'
 
 function mockFetch(status = 200, data: unknown = {}, headers: Record<string, string> = {}) {
-  const responseHeaders = new Headers({ 'content-type': 'application/json', ...headers })
+  const responseHeaders = new Headers({ 'content-type': ContentType.JSON, ...headers })
   return vi.fn().mockResolvedValue(
     new Response(JSON.stringify(data), { status, statusText: 'OK', headers: responseHeaders })
   )
@@ -15,10 +16,10 @@ const baseUrl = 'https://api.example.com'
 const getOp: Operation = {
   id: 'getUser',
   path: '/users/{id}',
-  method: 'GET',
+  method: HttpMethod.GET,
   parameters: [
-    { name: 'id', in: 'path', required: true, description: '', schema: { type: 'string' } },
-    { name: 'limit', in: 'query', required: false, description: '', schema: { type: 'number' } },
+    { name: 'id', in: ParamLocation.PATH, required: true, description: '', schema: { type: 'string' } },
+    { name: 'limit', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'number' } },
   ],
   tags: [],
 }
@@ -26,7 +27,7 @@ const getOp: Operation = {
 const postOp: Operation = {
   id: 'createUser',
   path: '/users',
-  method: 'POST',
+  method: HttpMethod.POST,
   parameters: [],
   requestBody: {
     required: true,
@@ -47,7 +48,7 @@ const postOp: Operation = {
 const formOp: Operation = {
   id: 'createToken',
   path: '/oauth/token',
-  method: 'POST',
+  method: HttpMethod.POST,
   parameters: [],
   requestBody: {
     required: true,
@@ -87,10 +88,10 @@ describe('required param validation', () => {
     const op: Operation = {
       id: 'test',
       path: '/items/{a}/{b}',
-      method: 'GET',
+      method: HttpMethod.GET,
       parameters: [
-        { name: 'a', in: 'path', required: true, description: '', schema: { type: 'string' } },
-        { name: 'b', in: 'path', required: true, description: '', schema: { type: 'string' } },
+        { name: 'a', in: ParamLocation.PATH, required: true, description: '', schema: { type: 'string' } },
+        { name: 'b', in: ParamLocation.PATH, required: true, description: '', schema: { type: 'string' } },
       ],
       tags: [],
     }
@@ -109,7 +110,7 @@ describe('body property assembly from flat args', () => {
 
     const [, init] = fetch.mock.calls[0]
     expect(JSON.parse(init.body)).toEqual({ name: 'Alice', email: 'alice@example.com' })
-    expect(init.headers['Content-Type']).toBe('application/json')
+    expect(init.headers[HeaderName.CONTENT_TYPE]).toBe(ContentType.JSON)
   })
 
   it('uses explicit body key over flat args', async () => {
@@ -143,7 +144,7 @@ describe('form-urlencoded body support', () => {
 
     const [url, init] = fetch.mock.calls[0]
     expect(url).toContain('/oauth/token')
-    expect(init.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
+    expect(init.headers[HeaderName.CONTENT_TYPE]).toBe(ContentType.FORM_URLENCODED)
 
     const params = new URLSearchParams(init.body)
     expect(params.get('grant_type')).toBe('client_credentials')
@@ -156,7 +157,7 @@ describe('form-urlencoded body support', () => {
     await executeOperation(baseUrl, postOp, { name: 'Alice' }, { fetch })
 
     const [, init] = fetch.mock.calls[0]
-    expect(init.headers['Content-Type']).toBe('application/json')
+    expect(init.headers[HeaderName.CONTENT_TYPE]).toBe(ContentType.JSON)
     expect(JSON.parse(init.body)).toEqual({ name: 'Alice' })
   })
 })
@@ -174,8 +175,8 @@ describe('timeout enforcement', () => {
     await expect(
       executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch, timeoutMs: 1 })
     ).rejects.toMatchObject({
-      name: 'ApiInvokeError',
-      kind: 'timeout',
+      name: API_INVOKE_ERROR_NAME,
+      kind: ErrorKind.TIMEOUT,
     })
   })
 
@@ -232,7 +233,7 @@ describe('ExecutionResult', () => {
     const fetch = mockFetch(200, { id: 1 })
     const result = await executeOperation(baseUrl, getOp, { id: '42' }, { fetch })
 
-    expect(result.request.method).toBe('GET')
+    expect(result.request.method).toBe(HttpMethod.GET)
     expect(result.request.url).toContain('/users/42')
     expect(result.elapsedMs).toBeGreaterThanOrEqual(0)
   })
@@ -250,7 +251,7 @@ describe('ExecutionResult', () => {
     const result = await executeOperation(
       baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
     )
-    expect(result.contentType).toBe('application/json')
+    expect(result.contentType).toBe(ContentType.JSON)
   })
 
   it('includes contentType for non-JSON responses', async () => {
@@ -273,23 +274,23 @@ describe('Accept header', () => {
     const fetch = mockFetch()
     await executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
     const [, init] = fetch.mock.calls[0]
-    expect(init.headers['Accept']).toBe('application/json')
+    expect(init.headers[HeaderName.ACCEPT]).toBe(ContentType.JSON)
   })
 
   it('uses operation responseContentType', async () => {
     const fetch = mockFetch()
-    const op: Operation = { ...getOp, parameters: [], responseContentType: 'application/xml' }
+    const op: Operation = { ...getOp, parameters: [], responseContentType: ContentType.XML }
     await executeOperation(baseUrl, op, {}, { fetch })
     const [, init] = fetch.mock.calls[0]
-    expect(init.headers['Accept']).toBe('application/xml')
+    expect(init.headers[HeaderName.ACCEPT]).toBe(ContentType.XML)
   })
 
   it('uses explicit accept option over operation default', async () => {
     const fetch = mockFetch()
-    const op: Operation = { ...getOp, parameters: [], responseContentType: 'application/xml' }
-    await executeOperation(baseUrl, op, {}, { fetch, accept: 'text/plain' })
+    const op: Operation = { ...getOp, parameters: [], responseContentType: ContentType.XML }
+    await executeOperation(baseUrl, op, {}, { fetch, accept: ContentType.TEXT })
     const [, init] = fetch.mock.calls[0]
-    expect(init.headers['Accept']).toBe('text/plain')
+    expect(init.headers[HeaderName.ACCEPT]).toBe(ContentType.TEXT)
   })
 })
 
@@ -324,7 +325,7 @@ describe('+json content type handling', () => {
 
 describe('text/plain content-type handling', () => {
   it('tries JSON parse for text/plain and succeeds with JSON body', async () => {
-    const responseHeaders = new Headers({ 'content-type': 'text/plain' })
+    const responseHeaders = new Headers({ 'content-type': ContentType.TEXT })
     const fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), { status: 200, headers: responseHeaders })
     )
@@ -335,7 +336,7 @@ describe('text/plain content-type handling', () => {
   })
 
   it('returns raw text when body is not JSON', async () => {
-    const responseHeaders = new Headers({ 'content-type': 'text/plain' })
+    const responseHeaders = new Headers({ 'content-type': ContentType.TEXT })
     const fetch = vi.fn().mockResolvedValue(
       new Response('plain text response', { status: 200, headers: responseHeaders })
     )
@@ -350,14 +351,14 @@ describe('text/plain content-type handling', () => {
 
 describe('XML handling', () => {
   it('returns application/xml as text', async () => {
-    const responseHeaders = new Headers({ 'content-type': 'application/xml' })
+    const responseHeaders = new Headers({ 'content-type': ContentType.XML })
     const fetch = vi.fn().mockResolvedValue(
       new Response('<root><item/></root>', { status: 200, headers: responseHeaders })
     )
     const result = await executeOperation(
       baseUrl, { ...getOp, parameters: [] }, {}, { fetch }
     )
-    expect(result.contentType).toBe('application/xml')
+    expect(result.contentType).toBe(ContentType.XML)
     expect(result.data).toBe('<root><item/></root>')
   })
 
@@ -378,7 +379,7 @@ describe('XML handling', () => {
 
 describe('JSON parse failure fallback', () => {
   it('returns raw text when JSON parse fails and throwOnHttpError is false', async () => {
-    const responseHeaders = new Headers({ 'content-type': 'application/json' })
+    const responseHeaders = new Headers({ 'content-type': ContentType.JSON })
     const fetch = vi.fn().mockResolvedValue(
       new Response('not valid json {{{', { status: 200, headers: responseHeaders })
     )
@@ -389,13 +390,13 @@ describe('JSON parse failure fallback', () => {
   })
 
   it('throws parseError when JSON parse fails and throwOnHttpError is true (default)', async () => {
-    const responseHeaders = new Headers({ 'content-type': 'application/json' })
+    const responseHeaders = new Headers({ 'content-type': ContentType.JSON })
     const fetch = vi.fn().mockResolvedValue(
       new Response('not valid json {{{', { status: 200, headers: responseHeaders })
     )
     await expect(
       executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
-    ).rejects.toMatchObject({ kind: 'parse' })
+    ).rejects.toMatchObject({ kind: ErrorKind.PARSE })
   })
 })
 
@@ -444,21 +445,21 @@ describe('throwOnHttpError', () => {
     const fetch = mockFetch(401, { error: 'unauthorized' })
     await expect(
       executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
-    ).rejects.toMatchObject({ kind: 'auth' })
+    ).rejects.toMatchObject({ kind: ErrorKind.AUTH })
   })
 
   it('throws auth error with correct kind on 403', async () => {
     const fetch = mockFetch(403, { error: 'forbidden' })
     await expect(
       executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
-    ).rejects.toMatchObject({ kind: 'auth', status: 403 })
+    ).rejects.toMatchObject({ kind: ErrorKind.AUTH, status: 403 })
   })
 
   it('throws rate-limit error on 429', async () => {
     const fetch = mockFetch(429, { error: 'too many requests' })
     await expect(
       executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
-    ).rejects.toMatchObject({ kind: 'rate-limit', retryable: true })
+    ).rejects.toMatchObject({ kind: ErrorKind.RATE_LIMIT, retryable: true })
   })
 })
 
@@ -470,7 +471,7 @@ describe('response body in errors', () => {
     await expect(
       executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
     ).rejects.toMatchObject({
-      kind: 'auth',
+      kind: ErrorKind.AUTH,
       responseBody: { error: 'invalid_token', message: 'Token expired' },
     })
   })
@@ -480,7 +481,7 @@ describe('response body in errors', () => {
     await expect(
       executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
     ).rejects.toMatchObject({
-      kind: 'http',
+      kind: ErrorKind.HTTP,
       responseBody: { error: 'internal_error' },
     })
   })
@@ -494,7 +495,7 @@ describe('errorKind in non-throwing mode', () => {
     const result = await executeOperation(
       baseUrl, { ...getOp, parameters: [] }, {}, { fetch, throwOnHttpError: false }
     )
-    expect(result.errorKind).toBe('auth')
+    expect(result.errorKind).toBe(ErrorKind.AUTH)
   })
 
   it('sets errorKind to auth for 403', async () => {
@@ -502,7 +503,7 @@ describe('errorKind in non-throwing mode', () => {
     const result = await executeOperation(
       baseUrl, { ...getOp, parameters: [] }, {}, { fetch, throwOnHttpError: false }
     )
-    expect(result.errorKind).toBe('auth')
+    expect(result.errorKind).toBe(ErrorKind.AUTH)
   })
 
   it('sets errorKind to rate-limit for 429', async () => {
@@ -510,7 +511,7 @@ describe('errorKind in non-throwing mode', () => {
     const result = await executeOperation(
       baseUrl, { ...getOp, parameters: [] }, {}, { fetch, throwOnHttpError: false }
     )
-    expect(result.errorKind).toBe('rate-limit')
+    expect(result.errorKind).toBe(ErrorKind.RATE_LIMIT)
   })
 
   it('sets errorKind to http for 500', async () => {
@@ -518,7 +519,7 @@ describe('errorKind in non-throwing mode', () => {
     const result = await executeOperation(
       baseUrl, { ...getOp, parameters: [] }, {}, { fetch, throwOnHttpError: false }
     )
-    expect(result.errorKind).toBe('http')
+    expect(result.errorKind).toBe(ErrorKind.HTTP)
   })
 
   it('does not set errorKind for 200', async () => {
@@ -537,16 +538,64 @@ describe('per-call auth override', () => {
     const fetch = mockFetch()
     await executeOperation(
       baseUrl, { ...getOp, parameters: [] }, {},
-      { fetch, auth: { type: 'bearer', token: 'call-token' } }
+      { fetch, auth: { type: AuthType.BEARER, token: 'call-token' } }
     )
     const [, init] = fetch.mock.calls[0]
-    expect(init.headers['Authorization']).toBe('Bearer call-token')
+    expect(init.headers[HeaderName.AUTHORIZATION]).toBe('Bearer call-token')
   })
 
   it('sends no auth header when no auth provided', async () => {
     const fetch = mockFetch()
     await executeOperation(baseUrl, { ...getOp, parameters: [] }, {}, { fetch })
     const [, init] = fetch.mock.calls[0]
-    expect(init.headers['Authorization']).toBeUndefined()
+    expect(init.headers[HeaderName.AUTHORIZATION]).toBeUndefined()
+  })
+})
+
+// === buildRequest (dry-run) ===
+
+describe('buildRequest', () => {
+  it('builds a GET request without executing', () => {
+    const req = buildRequest(baseUrl, getOp, { id: '42', limit: 10 })
+    expect(req.method).toBe(HttpMethod.GET)
+    expect(req.url).toBe('https://api.example.com/users/42?limit=10')
+    expect(req.headers[HeaderName.ACCEPT]).toBe(ContentType.JSON)
+    expect(req.body).toBeUndefined()
+  })
+
+  it('builds a POST request with body', () => {
+    const req = buildRequest(baseUrl, postOp, { body: { name: 'Alice' } })
+    expect(req.method).toBe(HttpMethod.POST)
+    expect(req.body).toBe('{"name":"Alice"}')
+    expect(req.headers[HeaderName.CONTENT_TYPE]).toBe(ContentType.JSON)
+  })
+
+  it('injects auth', () => {
+    const req = buildRequest(baseUrl, { ...getOp, parameters: [] }, {}, { auth: { type: AuthType.BEARER, token: 'tok' } })
+    expect(req.headers[HeaderName.AUTHORIZATION]).toBe('Bearer tok')
+  })
+
+  it('validates required parameters', () => {
+    expect(() => buildRequest(baseUrl, getOp, {})).toThrow('Missing required parameter')
+  })
+
+  it('includes request body in ExecutionResult', async () => {
+    const fetch = mockFetch()
+    const result = await executeOperation(baseUrl, postOp, { body: { name: 'Alice' } }, { fetch })
+    expect(result.request.body).toBe('{"name":"Alice"}')
+  })
+
+  it('includes cookie params in headers', () => {
+    const op: Operation = {
+      id: 'test',
+      path: '/data',
+      method: HttpMethod.GET,
+      parameters: [
+        { name: 'session', in: ParamLocation.COOKIE, required: false, description: '', schema: { type: 'string' } },
+      ],
+      tags: [],
+    }
+    const req = buildRequest(baseUrl, op, { session: 'abc123' })
+    expect(req.headers[HeaderName.COOKIE]).toBe('session=abc123')
   })
 })

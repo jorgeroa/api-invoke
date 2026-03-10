@@ -14,7 +14,7 @@
  */
 
 import type { ParsedAPI, Operation, Parameter, RequestBody, RequestBodyProperty } from '../../core/types'
-import { ContentType, SpecFormat } from '../../core/types'
+import { ContentType, HttpMethod, ParamLocation, SpecFormat } from '../../core/types'
 
 export interface EndpointOptions {
   id?: string
@@ -27,7 +27,7 @@ export interface EndpointOptions {
 }
 
 export type ParamDef = {
-  in?: 'query' | 'path' | 'header'
+  in?: typeof ParamLocation.QUERY | typeof ParamLocation.PATH | typeof ParamLocation.HEADER
   required?: boolean
   type?: string
   description?: string
@@ -69,23 +69,23 @@ export class APIBuilder {
   }
 
   get(path: string, options: EndpointOptions = {}): this {
-    return this.endpoint('GET', path, options)
+    return this.endpoint(HttpMethod.GET, path, options)
   }
 
   post(path: string, options: EndpointOptions = {}): this {
-    return this.endpoint('POST', path, options)
+    return this.endpoint(HttpMethod.POST, path, options)
   }
 
   put(path: string, options: EndpointOptions = {}): this {
-    return this.endpoint('PUT', path, options)
+    return this.endpoint(HttpMethod.PUT, path, options)
   }
 
   patch(path: string, options: EndpointOptions = {}): this {
-    return this.endpoint('PATCH', path, options)
+    return this.endpoint(HttpMethod.PATCH, path, options)
   }
 
   delete(path: string, options: EndpointOptions = {}): this {
-    return this.endpoint('DELETE', path, options)
+    return this.endpoint(HttpMethod.DELETE, path, options)
   }
 
   endpoint(method: string, path: string, options: EndpointOptions = {}): this {
@@ -104,7 +104,7 @@ export class APIBuilder {
         : explicit ?? {}
       parameters.push({
         name,
-        in: 'path',
+        in: ParamLocation.PATH,
         required: true,
         description: def.description ?? '',
         schema: { type: def.type ?? 'string', default: def.default },
@@ -118,7 +118,7 @@ export class APIBuilder {
         const def = typeof raw === 'string' ? { type: raw } : raw
         parameters.push({
           name,
-          in: def.in ?? 'query',
+          in: def.in ?? ParamLocation.QUERY,
           required: def.required ?? false,
           description: def.description ?? '',
           schema: { type: def.type ?? 'string', default: def.default },

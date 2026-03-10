@@ -35,7 +35,7 @@ function mapSingleScheme(
       return { name, authType: AuthType.QUERY_PARAM, metadata: { paramName: apiKeyScheme.name }, description: baseDescription }
     }
     if (apiKeyScheme.in === ParamLocation.COOKIE) {
-      return { name, authType: null, metadata: {}, description: `${baseDescription} (unsupported: cookie-based auth)` }
+      return { name, authType: AuthType.COOKIE, metadata: { cookieName: apiKeyScheme.name }, description: baseDescription }
     }
     return { name, authType: null, metadata: {}, description: `${baseDescription} (unsupported: apiKey in "${apiKeyScheme.in}")` }
   }

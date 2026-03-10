@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest'
 import { createClient } from './client'
 import { withRetry, logging, corsProxy } from './middleware'
 import type { Auth, Enricher } from './core/types'
+import { AuthType, ContentType, HeaderName, HttpMethod, ParamLocation, SpecFormat } from './core/types'
 
 const TIMEOUT = 30_000
 
@@ -49,7 +50,7 @@ describe('e2e: spec parsing', () => {
 
   it('detects Swagger 2.0 format', async () => {
     const client = await createClient('http://httpbin.org/spec.json')
-    expect(client.api.specFormat).toBe('openapi-2')
+    expect(client.api.specFormat).toBe(SpecFormat.OPENAPI_2)
   }, TIMEOUT)
 })
 
@@ -108,7 +109,7 @@ describe('e2e: HTTP methods', () => {
     expect(result.status).toBe(200)
     const data = result.data as Record<string, any>
     expect(data.json).toEqual({ message: 'hello', count: 42 })
-    expect(data.headers['Content-Type']).toContain('application/json')
+    expect(data.headers[HeaderName.CONTENT_TYPE]).toContain(ContentType.JSON)
   }, TIMEOUT)
 
   it('POST /post with string body', async () => {
@@ -279,13 +280,13 @@ describe('e2e: response metadata', () => {
     const client = await createClient('http://httpbin.org/spec.json')
     const result = await client.execute('get_get')
     expect(result.headers).toBeDefined()
-    expect(result.headers['content-type']).toContain('application/json')
+    expect(result.headers['content-type']).toContain(ContentType.JSON)
   }, TIMEOUT)
 
   it('returns request metadata', async () => {
     const client = await createClient('http://httpbin.org/spec.json')
     const result = await client.execute('get_get')
-    expect(result.request.method).toBe('GET')
+    expect(result.request.method).toBe(HttpMethod.GET)
     expect(result.request.url).toContain('httpbin.org/get')
   }, TIMEOUT)
 
@@ -307,9 +308,9 @@ const AUTH_SPECS = [
     name: 'Mistral AI',
     specUrl: 'https://docs.mistral.ai/openapi.yaml',
     category: 'AI/ML',
-    expectedAuthType: 'bearer',
+    expectedAuthType: AuthType.BEARER,
     envVar: 'MISTRAL_API_KEY',
-    authFactory: (key: string): Auth => ({ type: 'bearer', token: key }),
+    authFactory: (key: string): Auth => ({ type: AuthType.BEARER, token: key }),
     executionTest: {
       findOp: (ops: any[]) => ops.find(
         (op: any) => op.method.toLowerCase() === 'get' && op.path === '/v1/models',
@@ -327,7 +328,7 @@ const AUTH_SPECS = [
     expectedAuthType: null,
     envVar: 'ELEVENLABS_API_KEY',
     authFactory: (key: string): Auth => ({
-      type: 'apiKey', location: 'header', name: 'xi-api-key', value: key,
+      type: AuthType.API_KEY, location: ParamLocation.HEADER, name: 'xi-api-key', value: key,
     }),
     executionTest: {
       findOp: (ops: any[]) => ops.find(
@@ -380,7 +381,7 @@ describe('e2e: authenticated APIs — execution', () => {
 
   it('HTTPBin — bearer auth header injection', async () => {
     const client = await createClient('http://httpbin.org/spec.json', {
-      auth: { type: 'bearer', token: 'my-test-token' },
+      auth: { type: AuthType.BEARER, token: 'my-test-token' },
     })
 
     const result = await client.execute('get_headers')
@@ -391,7 +392,7 @@ describe('e2e: authenticated APIs — execution', () => {
 
   it('HTTPBin — basic auth injection', async () => {
     const client = await createClient('http://httpbin.org/spec.json', {
-      auth: { type: 'basic', username: 'user', password: 'pass' },
+      auth: { type: AuthType.BASIC, username: 'user', password: 'pass' },
     })
 
     const result = await client.execute('get_headers')
@@ -403,7 +404,7 @@ describe('e2e: authenticated APIs — execution', () => {
 
   it('HTTPBin — apiKey in header injection', async () => {
     const client = await createClient('http://httpbin.org/spec.json', {
-      auth: { type: 'apiKey', location: 'header', name: 'X-Custom-Key', value: 'secret-key-123' },
+      auth: { type: AuthType.API_KEY, location: ParamLocation.HEADER, name: 'X-Custom-Key', value: 'secret-key-123' },
     })
 
     const result = await client.execute('get_headers')
@@ -414,7 +415,7 @@ describe('e2e: authenticated APIs — execution', () => {
 
   it('HTTPBin — apiKey in query injection', async () => {
     const client = await createClient('http://httpbin.org/spec.json', {
-      auth: { type: 'apiKey', location: 'query', name: 'api_key', value: 'query-secret-456' },
+      auth: { type: AuthType.API_KEY, location: ParamLocation.QUERY, name: 'api_key', value: 'query-secret-456' },
     })
 
     const result = await client.execute('get_get')
@@ -425,7 +426,7 @@ describe('e2e: authenticated APIs — execution', () => {
 
   it('HTTPBin — oauth2 token injection', async () => {
     const client = await createClient('http://httpbin.org/spec.json', {
-      auth: { type: 'oauth2', accessToken: 'oauth-token-789' },
+      auth: { type: AuthType.OAUTH2, accessToken: 'oauth-token-789' },
     })
 
     const result = await client.execute('get_headers')
@@ -447,7 +448,7 @@ describe('e2e: client lifecycle', () => {
     expect(beforeData.headers.Authorization).toBeUndefined()
 
     // Set auth
-    client.setAuth({ type: 'bearer', token: 'dynamic-token' })
+    client.setAuth({ type: AuthType.BEARER, token: 'dynamic-token' })
     const after = await client.execute('get_headers')
     const afterData = after.data as Record<string, any>
     expect(afterData.headers.Authorization).toBe('Bearer dynamic-token')
@@ -455,7 +456,7 @@ describe('e2e: client lifecycle', () => {
 
   it('clearAuth() removes auth from subsequent requests', async () => {
     const client = await createClient('http://httpbin.org/spec.json', {
-      auth: { type: 'bearer', token: 'temp-token' },
+      auth: { type: AuthType.BEARER, token: 'temp-token' },
     })
 
     // Auth present

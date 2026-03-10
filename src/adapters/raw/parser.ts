@@ -5,7 +5,7 @@
  */
 
 import type { ParsedAPI, Operation, Parameter } from '../../core/types'
-import { SpecFormat } from '../../core/types'
+import { HttpMethod, ParamLocation, SpecFormat } from '../../core/types'
 
 export interface RawEndpoint {
   url: string
@@ -53,7 +53,7 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
         `All endpoints must share the same origin. Got "${parsed.origin}" but expected "${firstParsed.origin}"`
       )
     }
-    const method = (ep.method ?? 'GET').toUpperCase()
+    const method = (ep.method ?? HttpMethod.GET).toUpperCase()
     const pathname = parsed.pathname
 
     const parameters: Parameter[] = []
@@ -62,7 +62,7 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
     for (const [key, value] of parsed.searchParams.entries()) {
       parameters.push({
         name: key,
-        in: 'query',
+        in: ParamLocation.QUERY,
         required: false,
         description: `Default: ${value}`,
         schema: { type: 'string', default: value },

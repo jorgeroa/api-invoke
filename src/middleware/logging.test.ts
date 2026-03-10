@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { logging } from './logging'
+import { ContentType, HeaderName, HttpMethod } from '../core/types'
 
 describe('logging', () => {
   it('logs request method and URL', () => {
     const log = vi.fn()
     const mw = logging({ log })
-    mw.onRequest!('https://api.example.com/users', { method: 'GET' })
+    mw.onRequest!('https://api.example.com/users', { method: HttpMethod.GET })
     expect(log).toHaveBeenCalledTimes(1)
-    expect(log.mock.calls[0][0]).toContain('GET')
+    expect(log.mock.calls[0][0]).toContain(HttpMethod.GET)
     expect(log.mock.calls[0][0]).toContain('https://api.example.com/users')
   })
 
@@ -15,8 +16,8 @@ describe('logging', () => {
     const log = vi.fn()
     const mw = logging({ log })
     mw.onRequest!('https://api.example.com/users', {
-      method: 'GET',
-      headers: { 'Authorization': 'Bearer sk-secret-token-12345' },
+      method: HttpMethod.GET,
+      headers: { [HeaderName.AUTHORIZATION]: 'Bearer sk-secret-token-12345' },
     })
     const output = log.mock.calls[0][0]
     expect(output).toContain('Bearer ***')
@@ -26,7 +27,7 @@ describe('logging', () => {
   it('masks sensitive query parameters', () => {
     const log = vi.fn()
     const mw = logging({ log })
-    mw.onRequest!('https://api.example.com/users?api_key=secret123&page=1', { method: 'GET' })
+    mw.onRequest!('https://api.example.com/users?api_key=secret123&page=1', { method: HttpMethod.GET })
     const output = log.mock.calls[0][0]
     expect(output).toContain('api_key=***')
     expect(output).not.toContain('secret123')
@@ -37,18 +38,18 @@ describe('logging', () => {
     const log = vi.fn()
     const mw = logging({ log, sensitiveHeaders: ['X-Custom-Secret'] })
     mw.onRequest!('https://api.example.com/users', {
-      method: 'GET',
-      headers: { 'X-Custom-Secret': 'mysecret', 'Accept': 'application/json' },
+      method: HttpMethod.GET,
+      headers: { 'X-Custom-Secret': 'mysecret', [HeaderName.ACCEPT]: ContentType.JSON },
     })
     const output = log.mock.calls[0][0]
     expect(output).not.toContain('mysecret')
-    expect(output).toContain('application/json')
+    expect(output).toContain(ContentType.JSON)
   })
 
   it('masks custom sensitive params', () => {
     const log = vi.fn()
     const mw = logging({ log, sensitiveParams: ['session_id'] })
-    mw.onRequest!('https://api.example.com/users?session_id=abc123', { method: 'GET' })
+    mw.onRequest!('https://api.example.com/users?session_id=abc123', { method: HttpMethod.GET })
     const output = log.mock.calls[0][0]
     expect(output).not.toContain('abc123')
   })
@@ -73,7 +74,7 @@ describe('logging', () => {
   it('does not log body by default', () => {
     const log = vi.fn()
     const mw = logging({ log })
-    mw.onRequest!('https://api.example.com/users', { method: 'POST', body: '{"secret":"data"}' })
+    mw.onRequest!('https://api.example.com/users', { method: HttpMethod.POST, body: '{"secret":"data"}' })
     const output = log.mock.calls[0][0]
     expect(output).not.toContain('secret')
   })
@@ -81,7 +82,7 @@ describe('logging', () => {
   it('logs body when logBody is true', () => {
     const log = vi.fn()
     const mw = logging({ log, logBody: true })
-    mw.onRequest!('https://api.example.com/users', { method: 'POST', body: '{"name":"Alice"}' })
+    mw.onRequest!('https://api.example.com/users', { method: HttpMethod.POST, body: '{"name":"Alice"}' })
     const output = log.mock.calls[0][0]
     expect(output).toContain('Alice')
   })
@@ -89,14 +90,14 @@ describe('logging', () => {
   it('supports custom prefix', () => {
     const log = vi.fn()
     const mw = logging({ log, prefix: 'my-app' })
-    mw.onRequest!('https://api.example.com/users', { method: 'GET' })
+    mw.onRequest!('https://api.example.com/users', { method: HttpMethod.GET })
     expect(log.mock.calls[0][0]).toContain('[my-app]')
   })
 
-  it('returns url and init unchanged from onRequest', () => {
+  it('returns url and init unchanged from onRequest', async () => {
     const mw = logging({ log: () => {} })
-    const init = { method: 'GET' }
-    const result = mw.onRequest!('https://api.example.com/users', init)
+    const init = { method: HttpMethod.GET }
+    const result = await mw.onRequest!('https://api.example.com/users', init)
     expect(result).toEqual({ url: 'https://api.example.com/users', init })
   })
 
@@ -115,14 +116,14 @@ describe('logging', () => {
   it('uses api-invoke as default prefix', () => {
     const log = vi.fn()
     const mw = logging({ log })
-    mw.onRequest!('https://api.example.com/users', { method: 'GET' })
+    mw.onRequest!('https://api.example.com/users', { method: HttpMethod.GET })
     expect(log.mock.calls[0][0]).toContain('[api-invoke]')
   })
 
   it('logs elapsed time in onResponse after onRequest', async () => {
     const log = vi.fn()
     const mw = logging({ log })
-    mw.onRequest!('https://api.example.com/users', { method: 'GET' })
+    mw.onRequest!('https://api.example.com/users', { method: HttpMethod.GET })
     // Small delay to ensure measurable elapsed time
     await new Promise(r => setTimeout(r, 5))
     mw.onResponse!(new Response('{}', { status: 200, statusText: 'OK' }))

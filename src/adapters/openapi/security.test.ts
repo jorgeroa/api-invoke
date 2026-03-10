@@ -1,19 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import { mapSecuritySchemes } from './security'
+import { AuthType } from '../../core/types'
 
 describe('mapSecuritySchemes', () => {
   it('maps bearer auth', () => {
     const schemes = mapSecuritySchemes({
       bearerAuth: { type: 'http', scheme: 'bearer' },
     })
-    expect(schemes[0].authType).toBe('bearer')
+    expect(schemes[0].authType).toBe(AuthType.BEARER)
   })
 
   it('maps apiKey in header', () => {
     const schemes = mapSecuritySchemes({
       apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
     })
-    expect(schemes[0].authType).toBe('apiKey')
+    expect(schemes[0].authType).toBe(AuthType.API_KEY)
     expect(schemes[0].metadata.headerName).toBe('X-API-Key')
   })
 
@@ -21,7 +22,7 @@ describe('mapSecuritySchemes', () => {
     const schemes = mapSecuritySchemes({
       apiKey: { type: 'apiKey', in: 'query', name: 'api_key' },
     })
-    expect(schemes[0].authType).toBe('queryParam')
+    expect(schemes[0].authType).toBe(AuthType.QUERY_PARAM)
     expect(schemes[0].metadata.paramName).toBe('api_key')
   })
 
@@ -39,7 +40,7 @@ describe('mapSecuritySchemes', () => {
         },
       } as never,
     })
-    expect(schemes[0].authType).toBe('oauth2')
+    expect(schemes[0].authType).toBe(AuthType.OAUTH2)
     expect(schemes[0].metadata.authorizationUrl).toBe('https://auth.example.com/authorize')
     expect(schemes[0].metadata.tokenUrl).toBe('https://auth.example.com/token')
     expect(schemes[0].metadata.refreshUrl).toBe('https://auth.example.com/refresh')
@@ -58,7 +59,7 @@ describe('mapSecuritySchemes', () => {
         },
       } as never,
     })
-    expect(schemes[0].authType).toBe('oauth2')
+    expect(schemes[0].authType).toBe(AuthType.OAUTH2)
     expect(schemes[0].metadata.tokenUrl).toBe('https://auth.example.com/token')
     expect(schemes[0].metadata.authorizationUrl).toBeUndefined()
   })
@@ -73,7 +74,7 @@ describe('mapSecuritySchemes', () => {
         scopes: { read: 'Read access' },
       } as never,
     })
-    expect(schemes[0].authType).toBe('oauth2')
+    expect(schemes[0].authType).toBe(AuthType.OAUTH2)
     expect(schemes[0].metadata.authorizationUrl).toBe('https://auth.example.com/authorize')
     expect(schemes[0].metadata.tokenUrl).toBe('https://auth.example.com/token')
     expect(schemes[0].metadata.scopes).toBe('read')
@@ -86,8 +87,16 @@ describe('mapSecuritySchemes', () => {
         flows: {},
       } as never,
     })
-    expect(schemes[0].authType).toBe('oauth2')
+    expect(schemes[0].authType).toBe(AuthType.OAUTH2)
     expect(schemes[0].description).toContain('no supported flow found')
     expect(schemes[0].metadata).toEqual({})
+  })
+
+  it('maps apiKey in cookie', () => {
+    const schemes = mapSecuritySchemes({
+      sessionAuth: { type: 'apiKey', in: 'cookie', name: 'SESSION_ID' },
+    })
+    expect(schemes[0].authType).toBe(AuthType.COOKIE)
+    expect(schemes[0].metadata.cookieName).toBe('SESSION_ID')
   })
 })

@@ -6,6 +6,7 @@
  */
 
 import type { Middleware } from '../core/types'
+import { HttpMethod } from '../core/types'
 
 export interface LoggingOptions {
   /** Custom log function (default: console.log) */
@@ -135,7 +136,7 @@ export function logging(options: LoggingOptions = {}): Middleware {
       requestStart = performance.now()
 
       const maskedUrl = maskUrl(url, sensitiveParams)
-      const method = (init.method ?? 'GET').toUpperCase()
+      const method = (init.method ?? HttpMethod.GET).toUpperCase()
       const headers = formatHeaders(init, sensitiveHeaders)
 
       const parts = [`[${prefix}] → ${method} ${maskedUrl}`]
