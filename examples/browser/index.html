@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>api-invoke — Browser Example</title>
+  <!-- Import map: resolves bare specifiers used by dist/index.js -->
+  <!-- After publishing to npm, replace both entries with: "api-invoke": "https://esm.sh/api-invoke" -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@apidevtools/swagger-parser": "https://esm.sh/@apidevtools/swagger-parser"
+      }
+    }
+  </script>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
     button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
@@ -12,6 +21,19 @@
   </style>
 </head>
 <body>
+  <script>
+    if (location.protocol === 'file:') {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('output').textContent =
+          'This example must be served over HTTP.\n\n' +
+          'Run from the api-invoke/ directory:\n\n' +
+          '  npx serve .\n\n' +
+          'Then open http://localhost:3000/examples/browser/'
+        document.getElementById('fetch-btn').disabled = true
+      })
+    }
+  </script>
+
   <h1>api-invoke in the browser</h1>
   <p>Fetches a programming joke via a CORS proxy using <code>api-invoke</code>.</p>
 
@@ -19,57 +41,6 @@
   <pre id="output">Click the button to fetch a joke.</pre>
   <p class="meta" id="meta"></p>
 
-  <script type="module">
-    // Local development: import from the built dist
-    import { createClient, corsProxy } from '../../dist/index.js'
-    // After publishing to npm, use a CDN instead:
-    // import { createClient, corsProxy } from 'https://esm.sh/api-invoke'
-
-    const btn = document.getElementById('fetch-btn')
-    const output = document.getElementById('output')
-    const meta = document.getElementById('meta')
-
-    // Create client once (reused across clicks)
-    let client
-    try {
-      client = await createClient(
-        'https://v2.jokeapi.dev/joke/Programming?type=single',
-        {
-          middleware: [
-            // Route requests through a public CORS proxy.
-            // In production, use your own proxy server.
-            corsProxy({
-              rewrite: (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            }),
-          ],
-        },
-      )
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      output.textContent = `Failed to load API: ${message}`
-    }
-
-    btn.addEventListener('click', async () => {
-      if (!client) return
-      output.textContent = 'Loading...'
-      meta.textContent = ''
-
-      try {
-        const result = await client.execute('get_joke_Programming')
-
-        const data = result.data
-        if (data && typeof data === 'object' && !data.error) {
-          output.textContent = data.joke ?? `${data.setup}\n\n${data.delivery}`
-        } else {
-          output.textContent = `API error: ${data?.message ?? 'unexpected response'}`
-        }
-        meta.textContent = `Status: ${result.status} | ${result.elapsedMs}ms`
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        output.textContent = `Error: ${message}`
-        meta.textContent = 'The CORS proxy may be unavailable. Try again or use a different proxy.'
-      }
-    })
-  </script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

@@ -38,7 +38,7 @@ npx tsx examples/01-quick-start.ts
 
 ## Browser example
 
-After building, either open `browser/index.html` directly or serve the project:
+ES modules require HTTP, so you need a local server (opening the file directly won't work):
 
 ```bash
 npx serve .
