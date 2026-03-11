@@ -1,7 +1,7 @@
 /**
  * 07 — Middleware
  *
- * Compose middleware for logging, timing, and retry.
+ * Compose middleware for logging, tracing, and retry.
  * Note: `withRetry` is a fetch wrapper (passed via `options.fetch`),
  * while `logging` and custom middleware use `options.middleware`.
  * API: HTTPBin (no auth required)
@@ -12,20 +12,21 @@
 import { createClient, withRetry, logging } from 'api-invoke'
 import type { Middleware } from 'api-invoke'
 
-// --- Custom middleware: request timing ---
+// --- Custom middleware: request/response tracing ---
 
-const timing: Middleware = {
-  name: 'timing',
+const tracing: Middleware = {
+  name: 'tracing',
   onRequest(url, init) {
-    console.log(`  [timing] → ${init.method ?? 'GET'} ${url}`)
+    console.log(`  [tracing] → ${init.method ?? 'GET'} ${url}`)
     return { url, init }
   },
   onResponse(response) {
-    console.log(`  [timing] ← ${response.status} ${response.statusText}`)
+    console.log(`  [tracing] ← ${response.status} ${response.statusText}`)
     return response
   },
+  // onError is observational only — the original error still propagates to the caller.
   onError(error) {
-    console.log(`  [timing] ✗ ${error.message}`)
+    console.log(`  [tracing] ✗ ${error.message}`)
   },
 }
 
@@ -37,7 +38,7 @@ const logs: string[] = []
 const client = await createClient('http://httpbin.org/spec.json', {
   middleware: [
     logging({ log: (msg: string) => logs.push(msg) }),
-    timing,
+    tracing,
   ],
 })
 
@@ -57,7 +58,7 @@ const retryClient = await createClient('http://httpbin.org/spec.json', {
       console.log(`  [retry] attempt ${attempt}, delay ${delayMs}ms, status ${status}`)
     },
   }),
-  middleware: [timing], // middleware and retry can be combined
+  middleware: [tracing], // middleware and retry can be combined
 })
 
 const retryResult = await retryClient.execute('get_get')

@@ -3,7 +3,7 @@
  *
  * Explore what an API offers before calling it: operations, parameters,
  * HTTP methods, and auth schemes.
- * API: National Weather Service (no auth required, 50+ operations)
+ * API: National Weather Service (no auth required, many operations)
  *
  * Run: npx tsx examples/04-discover-operations.ts
  */
@@ -34,7 +34,11 @@ for (const op of client.operations.slice(0, 10)) {
 // Inspect one operation in detail
 const alertsOp = client.operations.find(
   o => o.method.toLowerCase() === 'get' && o.path === '/alerts',
-)!
+)
+if (!alertsOp) {
+  console.error('Could not find GET /alerts operation in the spec.')
+  process.exit(1)
+}
 
 console.log(`\nDetailed: ${alertsOp.id}`)
 console.log(`  ${alertsOp.method.toUpperCase()} ${alertsOp.path}`)

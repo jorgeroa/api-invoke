@@ -157,7 +157,7 @@ The [`examples/`](./examples) folder has runnable scripts demonstrating each fea
 | [`02-raw-url.ts`](./examples/02-raw-url.ts) | Call any URL with no spec |
 | [`03-parser-executor.ts`](./examples/03-parser-executor.ts) | Use parser and executor separately |
 | [`04-discover-operations.ts`](./examples/04-discover-operations.ts) | Browse operations, parameters, and auth schemes |
-| [`05-authentication.ts`](./examples/05-authentication.ts) | Bearer token flow and API key auth |
+| [`05-authentication.ts`](./examples/05-authentication.ts) | Full auth lifecycle: Bearer, Basic, API key, OAuth2, Cookie |
 | [`06-error-handling.ts`](./examples/06-error-handling.ts) | Error classification and non-throwing mode |
 | [`07-middleware.ts`](./examples/07-middleware.ts) | Retry, logging, and custom middleware |
 | [`browser/index.html`](./examples/browser/index.html) | Browser usage with CORS proxy |

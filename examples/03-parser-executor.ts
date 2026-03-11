@@ -21,7 +21,11 @@ console.log(`Operations: ${api.operations.length}\n`)
 // Find the postcode lookup operation
 const lookupOp = api.operations.find(
   o => o.method.toLowerCase() === 'get' && o.path.includes('/postcodes/') && o.path.includes('{'),
-)!
+)
+if (!lookupOp) {
+  console.error('Could not find a GET /postcodes/{...} operation in the spec.')
+  process.exit(1)
+}
 
 console.log(`Using operation: ${lookupOp.id}`)
 console.log(`  ${lookupOp.method} ${lookupOp.path}`)

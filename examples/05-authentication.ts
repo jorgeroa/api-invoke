@@ -4,7 +4,7 @@
  *
  * Shows the full auth lifecycle using HTTPBin: parse spec, try without auth,
  * inject credentials, verify they're sent, and clear them.
- * API: HTTPBin (no auth required — it echoes back whatever you send)
+ * API: HTTPBin (mirrors requests back — ideal for verifying auth headers without real credentials)
  *
  * Run: npx tsx examples/05-authentication.ts
  */
@@ -24,6 +24,8 @@ try {
 } catch (err) {
   if (err instanceof ApiInvokeError) {
     console.log(`Without auth: ${err.status} — ${err.suggestion}`)
+  } else {
+    throw err
   }
 }
 
@@ -40,6 +42,8 @@ try {
 } catch (err) {
   if (err instanceof ApiInvokeError) {
     console.log(`After clearAuth: ${err.status} — token removed\n`)
+  } else {
+    throw err
   }
 }
 

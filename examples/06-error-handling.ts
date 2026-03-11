@@ -8,7 +8,7 @@
  * Run: npx tsx examples/06-error-handling.ts
  */
 
-import { createClient, ApiInvokeError, ErrorKind } from 'api-invoke'
+import { createClient, ApiInvokeError } from 'api-invoke'
 
 const client = await createClient('http://httpbin.org/spec.json')
 
@@ -23,6 +23,8 @@ async function tryStatus(code: number) {
     if (err instanceof ApiInvokeError) {
       console.log(`  ${code} → kind: ${err.kind}, retryable: ${err.retryable}`)
       console.log(`         suggestion: ${err.suggestion}`)
+    } else {
+      throw err
     }
   }
 }
@@ -40,7 +42,7 @@ console.log('\n--- Unknown operation ---\n')
 try {
   await client.execute('nonexistent_operation')
 } catch (err) {
-  console.log(`  Error: ${(err as Error).message}`)
+  console.log(`  Error: ${err instanceof Error ? err.message : String(err)}`)
 }
 
 // --- Part C: Non-throwing mode ---
