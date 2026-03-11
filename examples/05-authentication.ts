@@ -11,7 +11,7 @@
 
 import { createClient, ApiInvokeError } from 'api-invoke'
 
-const client = await createClient('http://httpbin.org/spec.json')
+const client = await createClient('https://httpbin.org/spec.json')
 console.log(`API: ${client.api.title} (${client.operations.length} operations)\n`)
 
 // --- Bearer token ---
@@ -64,7 +64,7 @@ console.log('\n--- API key (header) ---\n')
 client.setAuth({ type: 'apiKey', location: 'header', name: 'X-API-Key', value: 'secret-123' })
 const apiKeyResult = await client.execute('get_headers')
 const apiKeyHeaders = (apiKeyResult.data as any).headers
-console.log(`X-API-Key header: ${apiKeyHeaders['X-Api-Key']}`)
+console.log(`X-API-Key header: ${apiKeyHeaders['X-Api-Key']}`) // HTTPBin normalises headers to title-case
 client.clearAuth()
 
 // --- API key (query) ---

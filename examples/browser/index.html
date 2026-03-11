@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>api-invoke — Browser Example</title>
-  <!-- Import map: resolves bare specifiers used by dist/index.js -->
-  <!-- After publishing to npm, replace both entries with: "api-invoke": "https://esm.sh/api-invoke" -->
+  <!-- Import map: dist/index.js imports @apidevtools/swagger-parser as a bare specifier; this resolves it to a CDN -->
+  <!-- After publishing to npm, replace with: "api-invoke": "https://esm.sh/api-invoke" (also update import in app.js) -->
   <script type="importmap">
     {
       "imports": {

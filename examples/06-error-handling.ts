@@ -1,8 +1,9 @@
 /**
  * 06 — Error Handling
  *
- * Every error is an ApiInvokeError with a `kind` for programmatic handling,
- * a `suggestion` for humans, and a `retryable` flag.
+ * HTTP errors are thrown as ApiInvokeError with a `kind` for programmatic
+ * handling, a `suggestion` for humans, and a `retryable` flag.
+ * Other errors (e.g. unknown operation) use standard Error.
  * API: HTTPBin (no auth required, Swagger 2.0)
  *
  * Run: npx tsx examples/06-error-handling.ts
@@ -10,7 +11,7 @@
 
 import { createClient, ApiInvokeError } from 'api-invoke'
 
-const client = await createClient('http://httpbin.org/spec.json')
+const client = await createClient('https://httpbin.org/spec.json')
 
 // --- Part A: Catching classified errors ---
 
@@ -40,6 +41,7 @@ await tryStatus(500) // HTTP error (retryable)
 console.log('\n--- Unknown operation ---\n')
 
 try {
+  // execute() throws a plain Error (not ApiInvokeError) for unknown operations
   await client.execute('nonexistent_operation')
 } catch (err) {
   console.log(`  Error: ${err instanceof Error ? err.message : String(err)}`)

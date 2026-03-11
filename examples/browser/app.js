@@ -1,6 +1,6 @@
 // Local development: import from the built dist
 import { createClient, corsProxy } from '../../dist/index.js'
-// After publishing to npm, use a CDN instead:
+// After publishing to npm, use a CDN instead (also update the import map in index.html):
 // import { createClient, corsProxy } from 'https://esm.sh/api-invoke'
 
 const btn = document.getElementById('fetch-btn')
@@ -25,6 +25,7 @@ try {
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err)
   output.textContent = `Failed to load API: ${message}`
+  btn.disabled = true
 }
 
 btn.addEventListener('click', async () => {

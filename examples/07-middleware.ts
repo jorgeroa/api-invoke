@@ -35,7 +35,7 @@ const tracing: Middleware = {
 console.log('--- Logging + custom middleware ---\n')
 
 const logs: string[] = []
-const client = await createClient('http://httpbin.org/spec.json', {
+const client = await createClient('https://httpbin.org/spec.json', {
   middleware: [
     logging({ log: (msg: string) => logs.push(msg) }),
     tracing,
@@ -50,7 +50,7 @@ console.log(`  Log entries: ${logs.length}`)
 
 console.log('\n--- withRetry (fetch wrapper) ---\n')
 
-const retryClient = await createClient('http://httpbin.org/spec.json', {
+const retryClient = await createClient('https://httpbin.org/spec.json', {
   fetch: withRetry({
     maxRetries: 2,
     initialDelayMs: 500,
