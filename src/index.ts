@@ -59,14 +59,14 @@ export { parseSSE } from './core/sse'
 export { buildUrl, deriveBaseUrl } from './core/url-builder'
 
 // Auth utilities
-export { injectAuth, maskAuth } from './core/auth'
-export type { AuthenticatedRequest } from './core/auth'
+export { injectAuth, maskAuth, refreshOAuth2Token } from './core/auth'
+export type { AuthenticatedRequest, OAuth2TokenResult } from './core/auth'
 export { toAuth, AuthConfigType } from './core/auth-config'
 export type { AuthConfig } from './core/auth-config'
 
 // Middleware
-export { withRetry, corsProxy, logging } from './middleware'
-export type { RetryOptions, CorsProxyOptions, LoggingOptions } from './middleware'
+export { withRetry, corsProxy, logging, withOAuthRefresh } from './middleware'
+export type { RetryOptions, CorsProxyOptions, LoggingOptions, OAuthRefreshOptions } from './middleware'
 
 // Adapters (for advanced usage)
 export { parseOpenAPISpec } from './adapters/openapi/parser'

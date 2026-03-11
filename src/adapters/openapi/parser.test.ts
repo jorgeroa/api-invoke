@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeType } from './parser'
+import { normalizeType, parseOpenAPISpec } from './parser'
 
 describe('normalizeType', () => {
   it('returns first non-null type from array', () => {
@@ -36,5 +36,137 @@ describe('normalizeType', () => {
 
   it('respects custom fallback for null-only array', () => {
     expect(normalizeType(['null'], 'object')).toBe('object')
+  })
+})
+
+describe('HEAD/OPTIONS parsing', () => {
+  const spec = {
+    openapi: '3.0.3',
+    info: { title: 'Test', version: '1.0.0' },
+    paths: {
+      '/health': {
+        head: {
+          operationId: 'healthCheck',
+          responses: { '200': { description: 'OK' } },
+        },
+      },
+      '/cors': {
+        options: {
+          operationId: 'corsCheck',
+          responses: { '200': { description: 'OK' } },
+        },
+      },
+    },
+  }
+
+  it('parses HEAD operations from spec', async () => {
+    const api = await parseOpenAPISpec(spec)
+    const headOp = api.operations.find(o => o.id === 'healthCheck')
+    expect(headOp).toBeDefined()
+    expect(headOp!.method).toBe('HEAD')
+    expect(headOp!.path).toBe('/health')
+  })
+
+  it('parses OPTIONS operations from spec', async () => {
+    const api = await parseOpenAPISpec(spec)
+    const optionsOp = api.operations.find(o => o.id === 'corsCheck')
+    expect(optionsOp).toBeDefined()
+    expect(optionsOp!.method).toBe('OPTIONS')
+    expect(optionsOp!.path).toBe('/cors')
+  })
+})
+
+describe('response schema extraction', () => {
+  it('extracts schemas from multiple status codes', async () => {
+    const spec = {
+      openapi: '3.0.3',
+      info: { title: 'Test', version: '1.0.0' },
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: {
+              '200': { description: 'OK', content: { 'application/json': { schema: { type: 'object', properties: { id: { type: 'string' } } } } } },
+              '201': { description: 'Created', content: { 'application/json': { schema: { type: 'object', properties: { id: { type: 'string' }, created: { type: 'boolean' } } } } } },
+              '204': { description: 'No Content' },
+              'default': { description: 'Error', content: { 'application/json': { schema: { type: 'object', properties: { error: { type: 'string' } } } } } },
+            },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    const op = api.operations[0]
+
+    // Primary schema is from 200
+    expect(op.responseSchema).toEqual({ type: 'object', properties: { id: { type: 'string' } } })
+
+    // All schemas mapped by status code
+    expect(op.responseSchemas).toBeDefined()
+    expect(op.responseSchemas!['200']).toEqual({ type: 'object', properties: { id: { type: 'string' } } })
+    expect(op.responseSchemas!['201']).toEqual({ type: 'object', properties: { id: { type: 'string' }, created: { type: 'boolean' } } })
+    expect(op.responseSchemas!['204']).toBeUndefined() // No content, no schema
+    expect(op.responseSchemas!['default']).toEqual({ type: 'object', properties: { error: { type: 'string' } } })
+  })
+
+  it('falls back to 201 as primary when no 200', async () => {
+    const spec = {
+      openapi: '3.0.3',
+      info: { title: 'Test', version: '1.0.0' },
+      paths: {
+        '/items': {
+          post: {
+            operationId: 'createItem',
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: {
+              '201': { description: 'Created', content: { 'application/json': { schema: { type: 'object', properties: { id: { type: 'integer' } } } } } },
+            },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    const op = api.operations[0]
+    expect(op.responseSchema).toEqual({ type: 'object', properties: { id: { type: 'integer' } } })
+    expect(op.responseSchemas).toEqual({ '201': op.responseSchema })
+  })
+
+  it('sets responseSchemas to undefined when no responses have schemas', async () => {
+    const spec = {
+      openapi: '3.0.3',
+      info: { title: 'Test', version: '1.0.0' },
+      paths: {
+        '/health': {
+          get: {
+            operationId: 'health',
+            responses: { '204': { description: 'No Content' } },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    expect(api.operations[0].responseSchemas).toBeUndefined()
+  })
+
+  it('does not use default as primary schema', async () => {
+    const spec = {
+      openapi: '3.0.3',
+      info: { title: 'Test', version: '1.0.0' },
+      paths: {
+        '/ping': {
+          get: {
+            operationId: 'ping',
+            responses: {
+              'default': { description: 'Error', content: { 'application/json': { schema: { type: 'object', properties: { error: { type: 'string' } } } } } },
+            },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    const op = api.operations[0]
+    expect(op.responseSchema).toBeUndefined()
+    expect(op.responseSchemas!['default']).toBeDefined()
   })
 })

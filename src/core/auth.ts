@@ -78,6 +78,62 @@ export function injectAuth(
   return result
 }
 
+/** Result from an OAuth2 token refresh. */
+export interface OAuth2TokenResult {
+  /** The new access token. */
+  accessToken: string
+  /** A new refresh token, if the server issued one. */
+  refreshToken?: string
+  /** Token lifetime in seconds, if provided by the server. */
+  expiresIn?: number
+}
+
+/**
+ * Exchange a refresh token for a new access token at the OAuth2 token endpoint.
+ *
+ * @param tokenUrl - The OAuth2 token endpoint URL
+ * @param refreshToken - The refresh token to exchange
+ * @param options - Optional client credentials and custom fetch
+ * @returns The new token set
+ * @throws {Error} If the refresh request fails
+ */
+export async function refreshOAuth2Token(
+  tokenUrl: string,
+  refreshToken: string,
+  options?: {
+    clientId?: string
+    clientSecret?: string
+    scopes?: string[]
+    fetch?: typeof globalThis.fetch
+  },
+): Promise<OAuth2TokenResult> {
+  const fetchFn = options?.fetch ?? globalThis.fetch
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  })
+  if (options?.clientId) body.set('client_id', options.clientId)
+  if (options?.clientSecret) body.set('client_secret', options.clientSecret)
+  if (options?.scopes?.length) body.set('scope', options.scopes.join(' '))
+
+  const response = await fetchFn(tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  })
+
+  if (!response.ok) {
+    throw new Error(`OAuth2 token refresh failed: ${response.status} ${response.statusText}`)
+  }
+
+  const data = await response.json() as Record<string, unknown>
+  return {
+    accessToken: data.access_token as string,
+    refreshToken: data.refresh_token as string | undefined,
+    expiresIn: data.expires_in as number | undefined,
+  }
+}
+
 /**
  * Mask credential values for safe logging. Shows the auth type and a redacted value.
  *

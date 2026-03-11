@@ -175,6 +175,76 @@ describe('form-urlencoded body support', () => {
   })
 })
 
+// === Multipart/form-data body ===
+
+describe('multipart/form-data body support', () => {
+  const multipartOp: Operation = {
+    id: 'uploadFile',
+    path: '/upload',
+    method: HttpMethod.POST,
+    parameters: [],
+    requestBody: {
+      required: true,
+      contentType: ContentType.MULTIPART,
+      schema: {
+        type: 'object',
+        raw: {},
+        properties: {
+          file: { type: 'string', format: 'binary' },
+          description: { type: 'string' },
+        },
+      },
+    },
+    tags: [],
+  }
+
+  it('builds FormData body for multipart operations', () => {
+    const blob = new Blob(['file content'], { type: 'text/plain' })
+    const req = buildRequest(baseUrl, multipartOp, { file: blob, description: 'test file' })
+    expect(req.body).toBeInstanceOf(FormData)
+    const fd = req.body as FormData
+    expect(fd.get('description')).toBe('test file')
+    expect(fd.get('file')).toBeInstanceOf(Blob)
+  })
+
+  it('does not set Content-Type header for multipart', () => {
+    const blob = new Blob(['data'])
+    const req = buildRequest(baseUrl, multipartOp, { file: blob, description: 'x' })
+    expect(req.headers[HeaderName.CONTENT_TYPE]).toBeUndefined()
+  })
+
+  it('handles ArrayBuffer values as file fields', () => {
+    const buffer = new ArrayBuffer(4)
+    const req = buildRequest(baseUrl, multipartOp, { file: buffer, description: 'binary' })
+    const fd = req.body as FormData
+    expect(fd.get('file')).toBeInstanceOf(Blob)
+    expect(fd.get('description')).toBe('binary')
+  })
+
+  it('handles Uint8Array values as file fields', () => {
+    const bytes = new Uint8Array([1, 2, 3, 4])
+    const req = buildRequest(baseUrl, multipartOp, { file: bytes, description: 'bytes' })
+    const fd = req.body as FormData
+    expect(fd.get('file')).toBeInstanceOf(Blob)
+  })
+
+  it('skips null and undefined values', () => {
+    const req = buildRequest(baseUrl, multipartOp, { file: null, description: undefined })
+    const fd = req.body as FormData
+    expect(fd.get('file')).toBeNull()
+    expect(fd.get('description')).toBeNull()
+  })
+
+  it('sends FormData to fetch', async () => {
+    const fetch = mockFetch()
+    const blob = new Blob(['data'])
+    await executeOperation(baseUrl, multipartOp, { file: blob, description: 'test' }, { fetch })
+
+    const [, init] = fetch.mock.calls[0]
+    expect(init.body).toBeInstanceOf(FormData)
+  })
+})
+
 // === Timeout ===
 
 describe('timeout enforcement', () => {
@@ -645,6 +715,20 @@ describe('buildRequest', () => {
     const fetch = mockFetch()
     const result = await executeOperation(baseUrl, postOp, { body: { name: 'Alice' } }, { fetch })
     expect(result.request.body).toBe('{"name":"Alice"}')
+  })
+
+  it('excludes body for HEAD operations even with requestBody', () => {
+    const headOp: Operation = {
+      id: 'headResource',
+      path: '/resource',
+      method: HttpMethod.HEAD,
+      parameters: [],
+      requestBody: postOp.requestBody,
+      tags: [],
+    }
+    const req = buildRequest(baseUrl, headOp, { name: 'Alice' })
+    expect(req.method).toBe(HttpMethod.HEAD)
+    expect(req.body).toBeUndefined()
   })
 
   it('includes cookie params in headers', () => {

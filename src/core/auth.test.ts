@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { injectAuth, maskAuth } from './auth'
+import { describe, it, expect, vi } from 'vitest'
+import { injectAuth, maskAuth, refreshOAuth2Token } from './auth'
 import { AuthType, HeaderName, ParamLocation } from './types'
 
 describe('injectAuth', () => {
@@ -82,5 +82,46 @@ describe('maskAuth', () => {
 
   it('shows preview only for tokens longer than 4 chars', () => {
     expect(maskAuth({ type: AuthType.BEARER, token: 'abcde' })).toBe('Bearer abcd***')
+  })
+})
+
+describe('refreshOAuth2Token', () => {
+  it('sends correct refresh request and returns tokens', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        access_token: 'new_at',
+        refresh_token: 'new_rt',
+        expires_in: 3600,
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    )
+
+    const result = await refreshOAuth2Token(
+      'https://auth.example.com/token',
+      'rt_old',
+      { clientId: 'cid', clientSecret: 'cs', scopes: ['read'], fetch: mockFetch },
+    )
+
+    expect(result.accessToken).toBe('new_at')
+    expect(result.refreshToken).toBe('new_rt')
+    expect(result.expiresIn).toBe(3600)
+
+    const [url, init] = mockFetch.mock.calls[0]
+    expect(url).toBe('https://auth.example.com/token')
+    expect(init.method).toBe('POST')
+    expect(init.body).toContain('grant_type=refresh_token')
+    expect(init.body).toContain('refresh_token=rt_old')
+    expect(init.body).toContain('client_id=cid')
+    expect(init.body).toContain('client_secret=cs')
+    expect(init.body).toContain('scope=read')
+  })
+
+  it('throws when refresh endpoint returns error', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('invalid_grant', { status: 400, statusText: 'Bad Request' })
+    )
+
+    await expect(
+      refreshOAuth2Token('https://auth.example.com/token', 'rt_expired', { fetch: mockFetch })
+    ).rejects.toThrow('OAuth2 token refresh failed: 400 Bad Request')
   })
 })

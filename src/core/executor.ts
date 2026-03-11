@@ -105,7 +105,7 @@ export function buildRequest(
 
   // Assemble body from flat args if no explicit 'body' key and operation has a requestBody
   let bodyData = args['body']
-  if (!bodyData && operation.requestBody && method !== HttpMethod.GET) {
+  if (!bodyData && operation.requestBody && method !== HttpMethod.GET && method !== HttpMethod.HEAD) {
     const bodyProps = operation.requestBody.schema.properties
     if (bodyProps) {
       const assembled: Record<string, unknown> = {}
@@ -121,8 +121,8 @@ export function buildRequest(
   }
 
   // Serialize body based on content type
-  let body: string | undefined
-  if (bodyData && method !== HttpMethod.GET) {
+  let body: string | FormData | undefined
+  if (bodyData && method !== HttpMethod.GET && method !== HttpMethod.HEAD) {
     const contentType = operation.requestBody?.contentType ?? ContentType.JSON
 
     if (contentType === ContentType.FORM_URLENCODED) {
@@ -135,6 +135,23 @@ export function buildRequest(
       }
       body = params.toString()
       headers[HeaderName.CONTENT_TYPE] = ContentType.FORM_URLENCODED
+    } else if (contentType === ContentType.MULTIPART) {
+      const formData = new FormData()
+      const obj = typeof bodyData === 'object' && bodyData !== null ? bodyData as Record<string, unknown> : {}
+      for (const [key, value] of Object.entries(obj)) {
+        if (value === undefined || value === null) continue
+        if (value instanceof Blob) {
+          formData.append(key, value, (value as File).name ?? key)
+        } else if (value instanceof ArrayBuffer) {
+          formData.append(key, new Blob([value]), key)
+        } else if (ArrayBuffer.isView(value)) {
+          formData.append(key, new Blob([new Uint8Array(value.buffer as ArrayBuffer, value.byteOffset, value.byteLength)]), key)
+        } else {
+          formData.append(key, String(value))
+        }
+      }
+      body = formData
+      // Do NOT set Content-Type — fetch auto-sets it with the multipart boundary
     } else {
       body = typeof bodyData === 'string' ? bodyData : JSON.stringify(bodyData)
       headers[HeaderName.CONTENT_TYPE] = ContentType.JSON

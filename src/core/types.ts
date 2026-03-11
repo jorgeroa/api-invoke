@@ -100,8 +100,10 @@ export interface Operation {
   parameters: Parameter[]
   /** Request body definition, if the operation accepts one. */
   requestBody?: RequestBody
-  /** Raw response schema from the spec (OpenAPI schema object). Useful for code generation or validation. */
+  /** Primary response schema from the first success status (200 → 201 → 202 → 2XX). Useful for code generation or validation. */
   responseSchema?: unknown
+  /** All response schemas keyed by HTTP status code (e.g. '200', '201', '204', 'default'). Includes success and error schemas. */
+  responseSchemas?: Record<string, unknown>
   /** Primary response content type (e.g. 'application/json', 'application/xml'). Used as the default Accept header. */
   responseContentType?: ContentType | string
   /** Tags for grouping operations (e.g. ['users', 'admin']). */
@@ -239,7 +241,7 @@ export type Auth =
   | { type: typeof AuthType.BEARER; token: string }
   | { type: typeof AuthType.BASIC; username: string; password: string }
   | { type: typeof AuthType.API_KEY; location: typeof ParamLocation.HEADER | typeof ParamLocation.QUERY; name: string; value: string }
-  | { type: typeof AuthType.OAUTH2; accessToken: string }
+  | { type: typeof AuthType.OAUTH2; accessToken: string; refreshToken?: string; tokenUrl?: string; clientId?: string; clientSecret?: string }
   | { type: typeof AuthType.COOKIE; name: string; value: string }
 
 // === Execution ===
@@ -255,8 +257,8 @@ export interface BuiltRequest {
   url: string
   /** Request headers including auth, content-type, and accept. */
   headers: Record<string, string>
-  /** Serialized request body, if present. */
-  body?: string
+  /** Serialized request body, if present. String for JSON/form-urlencoded, FormData for multipart. */
+  body?: string | FormData
 }
 
 /**

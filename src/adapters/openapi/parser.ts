@@ -19,8 +19,8 @@ import { extractOpenAPI3BaseUrl, extractSwagger2BaseUrl } from './base-url'
 import { mapSecuritySchemes } from './security'
 import { deriveBaseUrl } from '../../core/url-builder'
 
-/** Standard OpenAPI path item methods parsed from specs. HEAD/OPTIONS excluded from spec parsing — use the manual builder or raw URLs for these methods. */
-const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
+/** Standard HTTP methods parsed from OpenAPI path items. */
+const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'] as const
 
 /**
  * Normalize an OpenAPI schema type field to a single type string.
@@ -120,7 +120,7 @@ function extractOperations(
       )
 
       const requestBody = extractRequestBody(op, isOpenAPI3)
-      const responseSchema = extractResponseSchema(op, isOpenAPI3)
+      const { primary: responseSchema, all: responseSchemas } = extractResponseSchemas(op, isOpenAPI3)
       const responseContentType = extractResponseContentType(op, isOpenAPI3)
 
       // Generate a stable ID from operationId or method+path
@@ -136,6 +136,7 @@ function extractOperations(
         parameters,
         requestBody,
         responseSchema,
+        responseSchemas: Object.keys(responseSchemas).length > 0 ? responseSchemas : undefined,
         responseContentType,
         tags: op.tags ?? [],
       })
@@ -291,24 +292,35 @@ function flattenSchema(schema: OpenAPIV3.SchemaObject): RequestBodySchema {
   return result
 }
 
-function extractResponseSchema(
+/** Status codes to extract response schemas for, in priority order. */
+const RESPONSE_STATUS_CODES = ['200', '201', '202', '204', '2XX', 'default'] as const
+
+function extractResponseSchemas(
   operation: OpenAPIV3.OperationObject | OpenAPIV2.OperationObject,
   isOpenAPI3: boolean,
-): unknown {
+): { primary: unknown; all: Record<string, unknown> } {
   const responses = operation.responses
-  if (!responses) return undefined
+  if (!responses) return { primary: undefined, all: {} }
 
-  // Try success statuses in order (aligned with extractResponseContentType), skip 'default' as it often describes errors
-  const successResponse = responses['200'] ?? responses['201'] ?? responses['202']
-    ?? responses['2XX']
-  if (!successResponse) return undefined
+  const all: Record<string, unknown> = {}
+  for (const code of RESPONSE_STATUS_CODES) {
+    const resp = responses[code]
+    if (!resp) continue
 
-  if (isOpenAPI3) {
-    const resp = successResponse as OpenAPIV3.ResponseObject
-    return resp.content?.[ContentType.JSON]?.schema
-  } else {
-    return (successResponse as OpenAPIV2.ResponseObject).schema
+    let schema: unknown
+    if (isOpenAPI3) {
+      schema = (resp as OpenAPIV3.ResponseObject).content?.[ContentType.JSON]?.schema
+    } else {
+      schema = (resp as OpenAPIV2.ResponseObject).schema
+    }
+    if (schema) {
+      all[code] = schema
+    }
   }
+
+  // Primary: first success schema found (skip 'default' which often describes errors)
+  const primary = all['200'] ?? all['201'] ?? all['202'] ?? all['2XX']
+  return { primary, all }
 }
 
 function extractResponseContentType(
@@ -341,6 +353,8 @@ function extractResponseContentType(
     return undefined // No operation-level produces; caller falls back to default Accept header
   }
 }
+
+// === Pagination detection ===
 
 function extractSecuritySchemes(
   api: OpenAPIV3.Document | OpenAPIV2.Document,
