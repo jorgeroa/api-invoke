@@ -152,7 +152,7 @@ export function buildRequest(
 }
 
 /**
- * Shared fetch pipeline: buildRequest → abort signal → middleware → fetch → response middleware.
+ * Shared fetch pipeline: buildRequest → extra headers → abort signal → request middleware → fetch → response middleware.
  * Used by both executeOperation() and executeOperationStream().
  */
 async function executeFetch(
@@ -292,7 +292,7 @@ export async function executeOperation(
   const { method, url, headers, body } = request
 
   // Parse response body based on content type
-  // Handles JSON (including +json variants like application/vnd.api+json), binary, and XML
+  // Handles JSON (including +json variants like application/vnd.api+json), binary, XML, and unknown types (JSON attempted, falling back to text)
   let data: unknown
   const contentType = response.headers.get(HeaderName.CONTENT_TYPE) || ''
   if (contentType.includes(ContentType.JSON) || contentType.includes(JSON_SUFFIX)) {

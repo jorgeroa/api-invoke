@@ -280,7 +280,7 @@ export interface ExecutionResult {
   headers: Record<string, string>
   /** The request that was sent, useful for debugging and logging. */
   request: BuiltRequest
-  /** Total request duration in milliseconds (from send to response fully read). */
+  /** Request duration in milliseconds (from send to response headers received, before body parsing). */
   elapsedMs: number
   /** Set when `throwOnHttpError` is false and the response is an error. Allows programmatic error classification without throwing. */
   errorKind?: ResultErrorKind
