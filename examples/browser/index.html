@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>api-invoke — Browser Example</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+    button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 1rem; border-radius: 4px; white-space: pre-wrap; min-height: 2rem; }
+    .meta { color: #666; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>api-invoke in the browser</h1>
+  <p>Fetches a programming joke via a CORS proxy using <code>api-invoke</code>.</p>
+
+  <button id="fetch-btn">Fetch Joke</button>
+  <pre id="output">Click the button to fetch a joke.</pre>
+  <p class="meta" id="meta"></p>
+
+  <script type="module">
+    // Local development: import from the built dist
+    import { createClient, corsProxy } from '../../dist/index.js'
+    // After publishing to npm, use a CDN instead:
+    // import { createClient, corsProxy } from 'https://esm.sh/api-invoke'
+
+    const btn = document.getElementById('fetch-btn')
+    const output = document.getElementById('output')
+    const meta = document.getElementById('meta')
+
+    btn.addEventListener('click', async () => {
+      output.textContent = 'Loading...'
+      meta.textContent = ''
+
+      try {
+        const client = await createClient(
+          'https://v2.jokeapi.dev/joke/Programming?type=single',
+          {
+            middleware: [
+              // Route requests through a public CORS proxy.
+              // In production, use your own proxy server.
+              corsProxy({
+                rewrite: (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+              }),
+            ],
+          },
+        )
+
+        const result = await client.execute('get_joke_Programming')
+
+        const data = result.data
+        output.textContent = data.joke ?? `${data.setup}\n\n${data.delivery}`
+        meta.textContent = `Status: ${result.status} | ${result.elapsedMs}ms`
+      } catch (err) {
+        output.textContent = `Error: ${err.message}`
+        meta.textContent = 'The CORS proxy may be unavailable. Try again or use a different proxy.'
+      }
+    })
+  </script>
+</body>
+</html>
