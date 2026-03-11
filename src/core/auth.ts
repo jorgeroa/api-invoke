@@ -6,14 +6,24 @@
 import type { Auth } from './types'
 import { AuthType, HeaderName, ParamLocation } from './types'
 
+/**
+ * A request with authentication applied (URL may be modified for query-based auth).
+ */
 export interface AuthenticatedRequest {
+  /** URL, potentially modified with query-based auth parameters. */
   url: string
+  /** Headers with auth credentials injected. */
   headers: Record<string, string>
 }
 
 /**
  * Inject authentication credentials into a request URL and headers.
  * Accepts a single Auth or an array for composing multiple schemes (e.g. API key + bearer).
+ *
+ * @param url - The request URL
+ * @param headers - Existing request headers (will be shallow-copied, not mutated)
+ * @param auth - Credentials to inject (single or array)
+ * @returns New URL and headers with auth applied
  */
 export function injectAuth(
   url: string,
@@ -69,7 +79,10 @@ export function injectAuth(
 }
 
 /**
- * Mask credential values for safe logging.
+ * Mask credential values for safe logging. Shows the auth type and a redacted value.
+ *
+ * @param auth - The auth credentials to mask
+ * @returns A human-readable string with sensitive values replaced by `***`
  */
 export function maskAuth(auth: Auth): string {
   switch (auth.type) {

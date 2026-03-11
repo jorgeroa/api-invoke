@@ -63,16 +63,22 @@ function calculateDelay(
 
 /**
  * Create a fetch wrapper that retries on transient failures.
+ * Implements exponential backoff with jitter, and respects the `Retry-After` header.
  *
- * Usage:
+ * @param options - Retry configuration (max retries, delays, retryable statuses)
+ * @param baseFetch - Base fetch function to wrap. Defaults to `globalThis.fetch`.
+ * @returns A fetch-compatible function with retry behavior
+ *
+ * @example
  * ```ts
  * const client = await createClient(url, {
  *   fetch: withRetry({ maxRetries: 3 }),
  * })
  * ```
  *
- * Or wrap an existing fetch:
+ * @example
  * ```ts
+ * // Wrap a custom fetch
  * const client = await createClient(url, {
  *   fetch: withRetry({ maxRetries: 3 }, myCustomFetch),
  * })

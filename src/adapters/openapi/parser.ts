@@ -24,8 +24,12 @@ const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
 
 /**
  * Normalize an OpenAPI schema type field to a single type string.
- * Handles 3.1 type arrays (e.g. ["string", "null"]) by picking the first non-null entry,
+ * Handles 3.1 type arrays (e.g. `["string", "null"]`) by picking the first non-null entry,
  * passes through plain strings, and falls back to the provided default for missing/unrecognized values.
+ *
+ * @param type - The type field from an OpenAPI schema (string, array, or undefined)
+ * @param fallback - Fallback type when the value is missing or unrecognized (default: 'string')
+ * @returns A single type string
  */
 export function normalizeType(type: unknown, fallback = 'string'): string {
   if (Array.isArray(type)) {
@@ -37,10 +41,14 @@ export function normalizeType(type: unknown, fallback = 'string'): string {
 }
 
 /**
- * Parse an OpenAPI/Swagger spec into a ParsedAPI.
+ * Parse an OpenAPI 2.0 (Swagger) or 3.x spec into a spec-agnostic {@link ParsedAPI}.
+ * Handles dereferencing, operation extraction, auth scheme mapping, and base URL resolution.
  *
- * @param specUrlOrObject - URL string or parsed spec object
- * @param options.specUrl - Original spec URL (used for base URL fallback when spec has no servers)
+ * @param specUrlOrObject - URL string pointing to a spec, or a pre-parsed spec object
+ * @param options - Parse options
+ * @param options.specUrl - Original spec URL (used for base URL fallback when spec has no servers/host field)
+ * @returns A normalized ParsedAPI with all operations, auth schemes, and metadata
+ * @throws {Error} If the spec cannot be fetched, parsed, or dereferenced
  */
 export async function parseOpenAPISpec(
   specUrlOrObject: string | object,

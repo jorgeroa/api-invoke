@@ -43,13 +43,29 @@ function isSpecContent(obj: Record<string, unknown>): boolean {
   )
 }
 
+/**
+ * High-level API client. Wraps a {@link ParsedAPI} and provides methods to execute operations by ID.
+ * Created via {@link createClient} (recommended) or by constructing directly with a `ParsedAPI`.
+ *
+ * @example
+ * ```ts
+ * const client = await createClient('https://petstore.swagger.io/v2/swagger.json')
+ * const result = await client.execute('getInventory')
+ * console.log(result.data)
+ * ```
+ */
 export class ApiInvokeClient {
+  /** The parsed API specification backing this client. */
   readonly api: ParsedAPI
   private auth: Auth | Auth[] | undefined
   private middleware: Middleware[]
   private fetchFn: typeof globalThis.fetch
   private timeoutMs: number
 
+  /**
+   * @param api - Parsed API specification (from any adapter)
+   * @param options - Client configuration (auth, middleware, fetch, timeout)
+   */
   constructor(api: ParsedAPI, options: ClientOptions = {}) {
     this.api = api
     this.auth = options.auth
@@ -58,23 +74,24 @@ export class ApiInvokeClient {
     this.timeoutMs = options.timeoutMs ?? 0
   }
 
-  /** The resolved base URL for this API */
+  /** The resolved base URL for this API. */
   get baseUrl(): string {
     return this.api.baseUrl
   }
 
-  /** All available operations */
+  /** All available operations from the parsed spec. */
   get operations(): Operation[] {
     return this.api.operations
   }
 
-  /** Detected auth schemes from the spec */
+  /** Authentication schemes declared in the spec. Useful for building auth UIs. */
   get authSchemes(): AuthScheme[] {
     return this.api.authSchemes
   }
 
   /**
-   * Set authentication credentials.
+   * Set authentication credentials for all subsequent requests.
+   * @param auth - Single credential or array for composing multiple schemes
    */
   setAuth(auth: Auth | Auth[]): void {
     this.auth = auth
@@ -88,7 +105,9 @@ export class ApiInvokeClient {
   }
 
   /**
-   * Find an operation by ID.
+   * Find an operation by its ID.
+   * @param operationId - The operation ID to search for (e.g. 'listUsers', 'get_users_userId')
+   * @returns The operation, or undefined if not found
    */
   findOperation(operationId: string): Operation | undefined {
     return this.api.operations.find((op) => op.id === operationId)
@@ -96,6 +115,19 @@ export class ApiInvokeClient {
 
   /**
    * Execute an operation by ID with arguments.
+   *
+   * @param operationId - The operation ID from the parsed spec
+   * @param args - Key-value pairs for path, query, header, and body parameters
+   * @param options - Per-call overrides for auth, accept header, error behavior, and redirect mode
+   * @returns The execution result with status, parsed data, and response metadata
+   * @throws {ApiInvokeError} For network, CORS, timeout, and (by default) HTTP errors
+   * @throws {Error} If the operation ID is not found
+   *
+   * @example
+   * ```ts
+   * const result = await client.execute('getUser', { userId: 123 })
+   * console.log(result.status, result.data)
+   * ```
    */
   async execute(
     operationId: string,
@@ -121,6 +153,23 @@ export class ApiInvokeClient {
   /**
    * Execute an operation as a stream, returning an async iterable of SSE events.
    * Errors always throw (no non-throwing mode for streams).
+   *
+   * @param operationId - The operation ID from the parsed spec
+   * @param args - Key-value pairs for path, query, header, and body parameters
+   * @param options - Per-call overrides for auth, accept header, abort signal, and event callback
+   * @returns Streaming result with an async iterable `stream` property
+   * @throws {ApiInvokeError} For network, CORS, timeout, and HTTP errors
+   * @throws {Error} If the operation ID is not found
+   *
+   * @example
+   * ```ts
+   * const result = await client.executeStream('chatCompletion', {
+   *   model: 'gpt-4', messages: [{ role: 'user', content: 'Hi' }], stream: true,
+   * })
+   * for await (const event of result.stream) {
+   *   console.log(event.data)
+   * }
+   * ```
    */
   async executeStream(
     operationId: string,
@@ -148,9 +197,27 @@ export class ApiInvokeClient {
 /**
  * Create a client from an OpenAPI spec URL, spec object, or raw API URL.
  *
- * - OpenAPI spec URL → parsed spec with all operations
- * - Raw URL → single "query" operation with detected params
- * - Spec object → parsed directly
+ * Auto-detection logic:
+ * - OpenAPI spec URL (e.g. ends with `/openapi.json`) → parsed spec with all operations
+ * - Raw URL → attempts content-based spec detection, falls back to single-operation raw mode
+ * - Spec object (parsed JSON/YAML) → parsed directly
+ *
+ * @param input - OpenAPI spec URL, raw API URL, or pre-parsed spec object
+ * @param options - Client configuration (auth, middleware, fetch, enricher, timeout)
+ * @returns A configured {@link ApiInvokeClient} ready to execute operations
+ * @throws {Error} If the spec cannot be fetched or parsed
+ *
+ * @example
+ * ```ts
+ * // From OpenAPI spec URL
+ * const client = await createClient('https://petstore.swagger.io/v2/swagger.json')
+ *
+ * // From raw API URL
+ * const client = await createClient('https://api.example.com/users?page=1')
+ *
+ * // From spec object
+ * const client = await createClient(specJson, { auth: { type: 'bearer', token: 'sk-...' } })
+ * ```
  */
 export async function createClient(
   input: string | object,

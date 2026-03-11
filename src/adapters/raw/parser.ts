@@ -7,24 +7,39 @@
 import type { ParsedAPI, Operation, Parameter } from '../../core/types'
 import { HttpMethod, ParamLocation, SpecFormat } from '../../core/types'
 
+/**
+ * A raw URL endpoint definition (no spec required).
+ */
 export interface RawEndpoint {
+  /** Full URL for the endpoint (must be absolute). */
   url: string
+  /** HTTP method. Default: 'GET'. */
   method?: string
+  /** Custom operation ID. Auto-generated from method + path if omitted. */
   id?: string
+  /** Short summary. Defaults to `'{METHOD} {hostname}{path}'`. */
   summary?: string
 }
 
 /**
- * Parse a raw URL into a ParsedAPI with a single operation.
- * Delegates to parseRawUrls. Query parameters from the URL become configurable parameters.
+ * Parse a raw URL into a {@link ParsedAPI} with a single operation.
+ * Query parameters from the URL become configurable operation parameters.
+ *
+ * @param url - Absolute URL (e.g. 'https://api.example.com/users?page=1')
+ * @returns A ParsedAPI with a single GET operation
+ * @throws {Error} If the URL is not a valid absolute URL
  */
 export function parseRawUrl(url: string): ParsedAPI {
   return parseRawUrls([{ url }])
 }
 
 /**
- * Parse multiple raw URL endpoints into a ParsedAPI.
- * Each endpoint can specify its own method, id, and summary.
+ * Parse multiple raw URL endpoints into a single {@link ParsedAPI}.
+ * All endpoints must share the same origin. Query parameters become configurable operation parameters.
+ *
+ * @param endpoints - Array of raw endpoint definitions
+ * @returns A ParsedAPI with one operation per endpoint
+ * @throws {Error} If endpoints is empty, URLs are invalid, or origins don't match
  */
 export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
   if (endpoints.length === 0) {

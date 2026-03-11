@@ -7,7 +7,12 @@ import type { AuthScheme } from '../../core/types'
 import { AuthType, ParamLocation } from '../../core/types'
 
 /**
- * Map OpenAPI/Swagger security schemes to AuthScheme array.
+ * Map OpenAPI/Swagger security scheme definitions to api-invoke's {@link AuthScheme} array.
+ * Supports apiKey, http (bearer/basic), oauth2, and basic (Swagger 2.0) types.
+ * Unsupported schemes (e.g. openIdConnect) are mapped with `authType: null`.
+ *
+ * @param schemes - Security scheme definitions from the spec
+ * @returns Array of normalized auth schemes
  */
 export function mapSecuritySchemes(
   schemes: Record<string, OpenAPIV3.SecuritySchemeObject | OpenAPIV2.SecuritySchemeObject>,

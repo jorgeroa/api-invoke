@@ -7,6 +7,7 @@
 import type { Auth } from './types'
 import { AuthType, ParamLocation } from './types'
 
+/** Simplified auth type constants for flat configuration (CLI, env vars, config files). */
 export const AuthConfigType = {
   BEARER: 'bearer',
   HEADER: 'header',
@@ -15,18 +16,32 @@ export const AuthConfigType = {
 } as const
 export type AuthConfigType = (typeof AuthConfigType)[keyof typeof AuthConfigType]
 
+/**
+ * Flat auth configuration for CLI consumers.
+ * Unlike {@link Auth}, this is a single object with optional fields rather than a discriminated union.
+ * Use {@link toAuth} to convert to the full `Auth` type.
+ */
 export interface AuthConfig {
+  /** Auth type to use. */
   type: AuthConfigType
+  /** Bearer token (used when `type` is 'bearer'). */
   token?: string
+  /** Custom header name (used when `type` is 'header'). */
   headerName?: string
+  /** Custom header value (used when `type` is 'header'). */
   headerValue?: string
+  /** Query parameter name (used when `type` is 'apikey'). */
   paramName?: string
+  /** Query parameter value (used when `type` is 'apikey'). */
   paramValue?: string
 }
 
 /**
- * Convert a flat AuthConfig to api-invoke's Auth discriminated union.
- * Returns undefined if required credentials are missing or type is NONE.
+ * Convert a flat {@link AuthConfig} to api-invoke's {@link Auth} discriminated union.
+ * Returns undefined if required credentials are missing or type is `NONE`.
+ *
+ * @param config - Flat auth configuration
+ * @returns The `Auth` object, or undefined if credentials are incomplete
  */
 export function toAuth(config: AuthConfig): Auth | undefined {
   switch (config.type) {

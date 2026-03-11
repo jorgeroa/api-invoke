@@ -22,7 +22,9 @@
     "test:e2e": "export $(grep -v '^#' .env | xargs) 2>/dev/null; vitest run --config vitest.e2e.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "docs": "typedoc",
+    "docs:watch": "typedoc --watch"
   },
   "keywords": [
     "openapi",
@@ -31,12 +33,21 @@
     "runtime"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jorgeroa/api-invoke.git"
+  },
+  "homepage": "https://github.com/jorgeroa/api-invoke#readme",
+  "bugs": {
+    "url": "https://github.com/jorgeroa/api-invoke/issues"
+  },
   "dependencies": {
     "@apidevtools/swagger-parser": "^12.1.0"
   },
   "devDependencies": {
     "openapi-types": "^12.1.3",
     "tsup": "^8.0.0",
+    "typedoc": "^0.28.17",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

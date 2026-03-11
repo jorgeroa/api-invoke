@@ -96,16 +96,21 @@ function formatHeaders(
 
 /**
  * Create a logging middleware that logs requests and responses.
+ * Automatically masks sensitive headers (Authorization, cookies) and query parameters.
  *
- * Usage:
+ * @param options - Logging configuration (custom logger, body logging, sensitive fields)
+ * @returns A {@link Middleware} that logs request/response details
+ *
+ * @example
  * ```ts
  * const client = await createClient(url, {
  *   middleware: [logging()],
  * })
  * ```
  *
- * Custom logger:
+ * @example
  * ```ts
+ * // Custom logger
  * const client = await createClient(url, {
  *   middleware: [logging({ log: myLogger.info })],
  * })

@@ -30,17 +30,23 @@ function defaultShouldProxy(url: string): boolean {
 }
 
 /**
- * Create a CORS proxy middleware that rewrites request URLs.
+ * Create a CORS proxy middleware that rewrites request URLs through a proxy server.
+ * Useful when APIs block browser CORS requests.
  *
- * Usage:
+ * @param options - Proxy configuration (custom rewrite function, proxy filter)
+ * @returns A {@link Middleware} that rewrites URLs through the proxy
+ *
+ * @example
  * ```ts
+ * // Default: rewrites to /api-proxy/{encodedUrl}
  * const client = await createClient(url, {
  *   middleware: [corsProxy()],
  * })
  * ```
  *
- * Custom proxy:
+ * @example
  * ```ts
+ * // Custom proxy URL
  * const client = await createClient(url, {
  *   middleware: [corsProxy({
  *     rewrite: (url) => `https://my-proxy.com/?url=${encodeURIComponent(url)}`,

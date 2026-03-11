@@ -60,6 +60,7 @@ export { buildUrl, deriveBaseUrl } from './core/url-builder'
 
 // Auth utilities
 export { injectAuth, maskAuth } from './core/auth'
+export type { AuthenticatedRequest } from './core/auth'
 export { toAuth, AuthConfigType } from './core/auth-config'
 export type { AuthConfig } from './core/auth-config'
 

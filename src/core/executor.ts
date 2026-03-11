@@ -26,15 +26,24 @@ const JSON_SUFFIX = '+json'
 const XML_SUBTYPE = '/xml'
 const XML_SUFFIX = '+xml'
 
-/** Options for buildRequest() — only request-construction concerns, no runtime/execution options. */
+/**
+ * Options for {@link buildRequest} — only request-construction concerns, no runtime/execution options.
+ */
 export interface BuildRequestOptions {
+  /** Authentication credentials to inject into the request. */
   auth?: Auth | Auth[]
-  /** Override the Accept header. Defaults to operation.responseContentType or ContentType.JSON. */
+  /** Override the Accept header. Defaults to `operation.responseContentType` or `'application/json'`. */
   accept?: string
 }
 
+/**
+ * Options for {@link executeOperation} and {@link executeOperationStream}.
+ * Extends {@link BuildRequestOptions} with runtime concerns (middleware, fetch, timeout).
+ */
 export interface ExecuteOptions extends BuildRequestOptions {
+  /** Middleware pipeline applied to the request/response. */
   middleware?: Middleware[]
+  /** Custom fetch implementation. Defaults to `globalThis.fetch`. */
   fetch?: typeof globalThis.fetch
   /** If false, return ExecutionResult for all HTTP errors instead of throwing. Client-side errors (CORS, network, timeout) always throw regardless. Default: true. */
   throwOnHttpError?: boolean
@@ -53,6 +62,13 @@ export type { BuiltRequest }
 /**
  * Build a request without executing it (dry-run / preview).
  * Validates parameters, assembles the body, and injects auth — but does not send.
+ *
+ * @param baseUrl - Base URL for the API (e.g. 'https://api.example.com/v1')
+ * @param operation - The operation to build a request for
+ * @param args - Key-value pairs for path, query, header, and body parameters
+ * @param options - Auth and accept header overrides
+ * @returns A fully constructed request ready to inspect or send manually
+ * @throws {Error} If required parameters are missing
  */
 export function buildRequest(
   baseUrl: string,
@@ -256,7 +272,14 @@ async function executeFetch(
 
 /**
  * Execute an API call for an operation with arguments.
- * Builds the URL, injects auth, applies middleware, classifies errors.
+ * Builds the URL, injects auth, applies middleware, and classifies errors.
+ *
+ * @param baseUrl - Base URL for the API
+ * @param operation - The operation to execute
+ * @param args - Key-value pairs for path, query, header, and body parameters
+ * @param options - Execution options (auth, middleware, fetch, timeout, error behavior)
+ * @returns The execution result with parsed response data
+ * @throws {ApiInvokeError} For network, CORS, timeout, parse, and (by default) HTTP errors
  */
 export async function executeOperation(
   baseUrl: string,
@@ -344,8 +367,13 @@ export async function executeOperation(
 }
 
 /**
- * Execute a raw HTTP request (Tier 3: zero spec).
+ * Execute a raw HTTP request without an API spec (Tier 3: zero spec).
  * Still provides error classification, response parsing, and timing.
+ *
+ * @param url - Full URL to request (used as both base URL and path)
+ * @param options - Request options (method, headers, body, auth, middleware)
+ * @returns The execution result with parsed response data
+ * @throws {ApiInvokeError} For network, CORS, timeout, parse, and (by default) HTTP errors
  */
 export async function executeRaw(
   url: string,
@@ -386,6 +414,13 @@ export async function executeRaw(
 /**
  * Execute an API call and return a streaming async iterable of SSE events.
  * Errors always throw (no non-throwing mode for streams).
+ *
+ * @param baseUrl - Base URL for the API
+ * @param operation - The operation to execute
+ * @param args - Key-value pairs for path, query, header, and body parameters
+ * @param options - Execution options, plus optional `onEvent` callback for each SSE event
+ * @returns Streaming result with an async iterable `stream` property
+ * @throws {ApiInvokeError} For network, CORS, timeout, parse, and HTTP errors
  */
 export async function executeOperationStream(
   baseUrl: string,
@@ -458,8 +493,13 @@ export async function executeOperationStream(
 }
 
 /**
- * Execute a raw streaming HTTP request (Tier 3: zero spec).
+ * Execute a raw streaming HTTP request without an API spec (Tier 3: zero spec).
  * Returns an async iterable of SSE events.
+ *
+ * @param url - Full URL to request
+ * @param options - Request options (method, headers, body, auth, middleware, onEvent callback)
+ * @returns Streaming result with an async iterable `stream` property
+ * @throws {ApiInvokeError} For network, CORS, timeout, parse, and HTTP errors
  */
 export async function executeRawStream(
   url: string,
