@@ -30,6 +30,51 @@ For these cases, you need a library that can take a spec (or just a URL), unders
 
 `api-invoke` does exactly that. It parses OpenAPI 2 (Swagger) and OpenAPI 3 specs into a spec-agnostic intermediate representation, then executes operations against the live API with built-in auth injection, error classification, middleware, and CORS handling.
 
+## How It Compares
+
+There are many ways to call APIs from JavaScript — from raw HTTP clients to full code generators. Here's how `api-invoke` fits into the landscape.
+
+### Feature comparison
+
+| Feature | fetch / axios | got / ky | openapi&#8209;generator | @hey&#8209;api | openapi&#8209;fetch | swagger&#8209;client | openapi&#8209;client&#8209;axios | **api&#8209;invoke** |
+|:--------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| No build step required | ✅ | ✅ | ❌ | ❌ | partial&nbsp;¹ | ✅ | ✅ | ✅ |
+| Parses OpenAPI 3 | — | — | build | build | build&nbsp;¹ | ✅ | ✅ | ✅ |
+| Parses Swagger 2 | — | — | build | build | ❌ | ✅ | ❌ | ✅ |
+| Works without any spec | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Auto-detects input type | — | — | — | — | — | ❌ | ❌ | ✅ |
+| Operation discovery | ❌ | ❌ | static | static | static | ✅ | ✅ | ✅ |
+| Auth injection from spec | ❌ | ❌ | generated | generated | ❌ | ✅ | ❌ | ✅ |
+| Error classification | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Built-in retry | ❌ | ✅ | — | — | ❌ | ❌ | ❌ | ✅ |
+| CORS detection + proxy | ❌ | N/A | — | — | ❌ | ❌ | ❌ | ✅ |
+| Middleware / hooks | interceptors | hooks | — | — | middleware | interceptors | interceptors | ✅ |
+| Manual API definitions | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Browser + Node.js | ✅ | partial&nbsp;² | N/A | N/A | ✅ | ✅ | ✅ | ✅ |
+| Static TypeScript types | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | runtime&nbsp;³ |
+
+<sup>¹ openapi-fetch makes runtime fetch calls, but requires running openapi-typescript at build time to generate types.</sup><br/>
+<sup>² got is Node-only; ky is browser-first. Neither works universally out of the box.</sup><br/>
+<sup>³ api-invoke provides TypeScript types for its own API (ParsedAPI, Operation, etc.) but does not generate per-endpoint types from specs. If you know your APIs at build time, code generators give you better IntelliSense.</sup>
+
+### Positioning
+
+<p align="center">
+  <img src="assets/positioning.svg" alt="Where api-invoke fits — quadrant chart showing spec awareness vs runtime/build-time" width="680"/>
+</p>
+
+`api-invoke` is the only tool that works across the entire top row — from raw URLs with no spec to full OpenAPI parsing, all at runtime.
+
+### Trade-offs
+
+We believe in being upfront about where other tools are the better choice:
+
+- **Static types** — Code generators like [@hey-api/openapi-ts](https://github.com/hey-api/openapi-ts) and [orval](https://orval.dev/) give you full IntelliSense with endpoint-specific types. If you know your APIs at build time, they provide better TypeScript DX. `api-invoke` trades compile-time type safety for runtime flexibility.
+- **OAuth flows** — `api-invoke` intentionally accepts pre-obtained tokens — it doesn't implement auth code, device, or client-credentials flows. Platforms like [Composio](https://composio.dev/) and [Superface](https://superface.ai/) handle the full OAuth lifecycle.
+- **Streaming** — Not yet supported (on the [roadmap](#)). LLM streaming APIs currently need raw fetch or swagger-client.
+- **Language support** — [openapi-generator](https://openapi-generator.tech/) covers 40+ languages. `api-invoke` is JavaScript/TypeScript only.
+- **Managed platforms** — Tools like [Superface OneSDK](https://superface.ai/) and [Composio](https://composio.dev/) solve a different problem: managed integration platforms with pre-built connectors, auth management, and monitoring. `api-invoke` is a library you embed in your own code.
+
 ## Install
 
 ```bash
