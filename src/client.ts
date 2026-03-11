@@ -3,8 +3,8 @@
  * Supports three tiers: full spec, raw URL, and zero-spec execution.
  */
 
-import type { ParsedAPI, Operation, Auth, AuthScheme, ExecutionResult, ClientOptions, Middleware } from './core/types'
-import { executeOperation } from './core/executor'
+import type { ParsedAPI, Operation, Auth, AuthScheme, ExecutionResult, StreamingExecutionResult, SSEEvent, ClientOptions, Middleware } from './core/types'
+import { executeOperation, executeOperationStream } from './core/executor'
 import { parseOpenAPISpec } from './adapters/openapi/parser'
 import { parseRawUrl } from './adapters/raw/parser'
 
@@ -115,6 +115,30 @@ export class ApiInvokeClient {
       accept: options?.accept,
       throwOnHttpError: options?.throwOnHttpError,
       redirect: options?.redirect,
+    })
+  }
+
+  /**
+   * Execute an operation as a stream, returning an async iterable of SSE events.
+   * Errors always throw (no non-throwing mode for streams).
+   */
+  async executeStream(
+    operationId: string,
+    args: Record<string, unknown> = {},
+    options?: { auth?: Auth | Auth[]; accept?: string; onEvent?: (event: SSEEvent) => void },
+  ): Promise<StreamingExecutionResult> {
+    const operation = this.findOperation(operationId)
+    if (!operation) {
+      throw new Error(`Operation "${operationId}" not found. Available: ${this.api.operations.map((o) => o.id).join(', ')}`)
+    }
+
+    return executeOperationStream(this.api.baseUrl, operation, args, {
+      auth: options?.auth ?? this.auth,
+      middleware: this.middleware,
+      fetch: this.fetchFn,
+      timeoutMs: this.timeoutMs,
+      accept: options?.accept,
+      onEvent: options?.onEvent,
     })
   }
 

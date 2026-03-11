@@ -18,6 +18,8 @@ export type {
   AuthScheme,
   ExecutionResult,
   ResultErrorKind,
+  SSEEvent,
+  StreamingExecutionResult,
   ClientOptions,
   Middleware,
   Enricher,
@@ -47,8 +49,11 @@ export {
 } from './core/errors'
 
 // Execution
-export { executeOperation, executeRaw, buildRequest } from './core/executor'
+export { executeOperation, executeRaw, executeOperationStream, executeRawStream, buildRequest } from './core/executor'
 export type { ExecuteOptions, BuildRequestOptions, BuiltRequest } from './core/executor'
+
+// SSE parser (advanced usage)
+export { parseSSE } from './core/sse'
 
 // URL utilities
 export { buildUrl, deriveBaseUrl } from './core/url-builder'

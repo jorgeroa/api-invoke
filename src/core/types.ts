@@ -106,6 +106,7 @@ export const ContentType = {
   XML: 'application/xml',
   OCTET_STREAM: 'application/octet-stream',
   TEXT: 'text/plain',
+  SSE: 'text/event-stream',
 } as const
 export type ContentType = (typeof ContentType)[keyof typeof ContentType]
 
@@ -171,6 +172,23 @@ export interface ExecutionResult {
   elapsedMs: number
   /** Set when throwOnHttpError is false and the response is an error. Allows programmatic error classification without throwing. */
   errorKind?: ResultErrorKind
+}
+
+// === Streaming ===
+
+export interface SSEEvent {
+  event?: string
+  data: string
+  id?: string
+  retry?: number
+}
+
+export interface StreamingExecutionResult {
+  status: number
+  stream: AsyncIterable<SSEEvent>
+  contentType: string
+  headers: Record<string, string>
+  request: BuiltRequest
 }
 
 // === Enricher ===

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { executeOperation, executeRaw, buildRequest } from './executor'
+import { executeOperation, executeRaw, executeOperationStream, executeRawStream, buildRequest } from './executor'
 import type { Operation } from './types'
 import { AuthType, ContentType, HeaderName, HttpMethod, ParamLocation } from './types'
 import { ErrorKind, API_INVOKE_ERROR_NAME } from './errors'
@@ -8,6 +8,19 @@ function mockFetch(status = 200, data: unknown = {}, headers: Record<string, str
   const responseHeaders = new Headers({ 'content-type': ContentType.JSON, ...headers })
   return vi.fn().mockResolvedValue(
     new Response(JSON.stringify(data), { status, statusText: 'OK', headers: responseHeaders })
+  )
+}
+
+function mockSSEFetch(sseText: string, status = 200) {
+  const encoder = new TextEncoder()
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(sseText))
+      controller.close()
+    },
+  })
+  return vi.fn().mockResolvedValue(
+    new Response(body, { status, statusText: 'OK', headers: { 'content-type': ContentType.SSE } })
   )
 }
 
@@ -679,5 +692,106 @@ describe('double parse failure', () => {
     await expect(
       executeOperation(baseUrl, op, {}, { fetch, throwOnHttpError: false })
     ).rejects.toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.PARSE })
+  })
+})
+
+// === Streaming ===
+
+describe('executeOperationStream', () => {
+  it('streams SSE events from a successful response', async () => {
+    const fetch = mockSSEFetch('data: hello\n\ndata: world\n\n')
+    const result = await executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+
+    expect(result.status).toBe(200)
+    expect(result.contentType).toContain(ContentType.SSE)
+
+    const events = []
+    for await (const event of result.stream) {
+      events.push(event)
+    }
+    expect(events).toEqual([{ data: 'hello' }, { data: 'world' }])
+  })
+
+  it('sets Accept header to text/event-stream by default', async () => {
+    const fetch = mockSSEFetch('data: x\n\n')
+    await executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+
+    const [, init] = fetch.mock.calls[0]
+    expect(init.headers[HeaderName.ACCEPT]).toBe(ContentType.SSE)
+  })
+
+  it('calls onEvent callback for each event', async () => {
+    const fetch = mockSSEFetch('data: a\n\ndata: b\n\n')
+    const received: string[] = []
+    const result = await executeOperationStream(baseUrl, getOp, { id: '1' }, {
+      fetch,
+      onEvent: (event) => received.push(event.data),
+    })
+
+    for await (const _ of result.stream) { /* consume */ }
+    expect(received).toEqual(['a', 'b'])
+  })
+
+  it('throws authError on 401', async () => {
+    const fetch = mockSSEFetch('', 401)
+    await expect(
+      executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+    ).rejects.toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.AUTH })
+  })
+
+  it('throws httpError on 500', async () => {
+    const fetch = mockSSEFetch('', 500)
+    await expect(
+      executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+    ).rejects.toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.HTTP })
+  })
+
+  it('throws parseError when response body is null', async () => {
+    const nullBodyResponse = new Response(null, {
+      status: 200,
+      headers: { 'content-type': ContentType.SSE },
+    })
+    // Force body to null
+    Object.defineProperty(nullBodyResponse, 'body', { value: null })
+    const fetch = vi.fn().mockResolvedValue(nullBodyResponse)
+
+    await expect(
+      executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+    ).rejects.toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.PARSE })
+  })
+
+  it('includes request metadata in result', async () => {
+    const fetch = mockSSEFetch('data: x\n\n')
+    const result = await executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+
+    expect(result.request.method).toBe(HttpMethod.GET)
+    expect(result.request.url).toContain('/users/1')
+    expect(result.headers).toBeDefined()
+  })
+})
+
+describe('executeRawStream', () => {
+  it('streams SSE events from a raw URL', async () => {
+    const fetch = mockSSEFetch('data: token1\n\ndata: token2\n\ndata: [DONE]\n\n')
+    const result = await executeRawStream('https://api.example.com/v1/chat', {
+      method: HttpMethod.POST,
+      body: JSON.stringify({ prompt: 'hello' }),
+      fetch,
+    })
+
+    expect(result.status).toBe(200)
+    const events = []
+    for await (const event of result.stream) {
+      events.push(event.data)
+    }
+    expect(events).toEqual(['token1', 'token2', '[DONE]'])
+  })
+
+  it('defaults to POST method', async () => {
+    const fetch = mockSSEFetch('data: x\n\n')
+    await executeRawStream('https://api.example.com/stream', { fetch })
+
+    const [, init] = fetch.mock.calls[0]
+    expect(init.method).toBe(HttpMethod.POST)
   })
 })

@@ -3,8 +3,9 @@
  * Pluggable: uses global fetch by default, can be overridden.
  */
 
-import type { Auth, BuiltRequest, ExecutionResult, Middleware, Operation } from './types'
+import type { Auth, BuiltRequest, ExecutionResult, Middleware, Operation, SSEEvent, StreamingExecutionResult } from './types'
 import { ContentType, HeaderName, HttpMethod } from './types'
+import { parseSSE } from './sse'
 import { buildUrl, extractHeaderParams, extractCookieParams } from './url-builder'
 import { injectAuth } from './auth'
 import {
@@ -132,15 +133,15 @@ export function buildRequest(
 }
 
 /**
- * Execute an API call for an operation with arguments.
- * Builds the URL, injects auth, applies middleware, classifies errors.
+ * Shared fetch pipeline: buildRequest → abort signal → middleware → fetch → response middleware.
+ * Used by both executeOperation() and executeOperationStream().
  */
-export async function executeOperation(
+async function executeFetch(
   baseUrl: string,
   operation: Operation,
   args: Record<string, unknown>,
-  options: ExecuteOptions = {},
-): Promise<ExecutionResult> {
+  options: ExecuteOptions,
+): Promise<{ response: Response; request: BuiltRequest; headers: Record<string, string>; elapsedMs: number }> {
   const fetchFn = options.fetch ?? globalThis.fetch
 
   let { method, url, headers, body } = buildRequest(baseUrl, operation, args, {
@@ -235,6 +236,22 @@ export async function executeOperation(
   response.headers.forEach((value, key) => {
     responseHeaders[key] = value
   })
+
+  return { response, request: { method, url, headers, body }, headers: responseHeaders, elapsedMs }
+}
+
+/**
+ * Execute an API call for an operation with arguments.
+ * Builds the URL, injects auth, applies middleware, classifies errors.
+ */
+export async function executeOperation(
+  baseUrl: string,
+  operation: Operation,
+  args: Record<string, unknown>,
+  options: ExecuteOptions = {},
+): Promise<ExecutionResult> {
+  const { response, request, headers: responseHeaders, elapsedMs } = await executeFetch(baseUrl, operation, args, options)
+  const { method, url, headers, body } = request
 
   // Parse response body based on content type
   // Handles JSON (including +json variants like application/vnd.api+json), binary, and XML
@@ -348,6 +365,100 @@ export async function executeRaw(
     signal: options.signal,
     accept: options.accept,
     redirect: options.redirect,
+  })
+}
+
+/**
+ * Execute an API call and return a streaming async iterable of SSE events.
+ * Errors always throw (no non-throwing mode for streams).
+ */
+export async function executeOperationStream(
+  baseUrl: string,
+  operation: Operation,
+  args: Record<string, unknown>,
+  options: ExecuteOptions & { onEvent?: (event: SSEEvent) => void } = {},
+): Promise<StreamingExecutionResult> {
+  // Default Accept to SSE when not explicitly set
+  const streamOptions: ExecuteOptions = {
+    ...options,
+    accept: options.accept ?? operation.responseContentType ?? ContentType.SSE,
+  }
+
+  const { response, request, headers: responseHeaders } = await executeFetch(baseUrl, operation, args, streamOptions)
+
+  // Always throw on HTTP errors for streams
+  if (!response.ok) {
+    let body: unknown
+    try { body = await response.text() } catch { /* ignore */ }
+    if (response.status === 401 || response.status === 403) {
+      throw authError(request.url, response.status as 401 | 403, body)
+    }
+    throw httpError(request.url, response.status, response.statusText, body)
+  }
+
+  if (!response.body) {
+    throw parseError(request.url, 'SSE (response body is null)')
+  }
+
+  const contentType = response.headers.get(HeaderName.CONTENT_TYPE) || ''
+
+  // Wrap SSE parser with optional onEvent callback
+  let stream: AsyncIterable<SSEEvent> = parseSSE(response.body)
+  if (options.onEvent) {
+    const inner = stream
+    const onEvent = options.onEvent
+    stream = (async function* () {
+      for await (const event of inner) {
+        onEvent(event)
+        yield event
+      }
+    })()
+  }
+
+  return {
+    status: response.status,
+    stream,
+    contentType,
+    headers: responseHeaders,
+    request,
+  }
+}
+
+/**
+ * Execute a raw streaming HTTP request (Tier 3: zero spec).
+ * Returns an async iterable of SSE events.
+ */
+export async function executeRawStream(
+  url: string,
+  options: {
+    method?: string
+    headers?: Record<string, string>
+    body?: string
+    auth?: Auth | Auth[]
+    middleware?: Middleware[]
+    fetch?: typeof globalThis.fetch
+    timeoutMs?: number
+    signal?: AbortSignal
+    accept?: string
+    onEvent?: (event: SSEEvent) => void
+  } = {},
+): Promise<StreamingExecutionResult> {
+  const operation: Operation = {
+    id: 'raw-stream',
+    path: '',
+    method: options.method ?? HttpMethod.POST,
+    parameters: [],
+    tags: [],
+  }
+
+  return executeOperationStream(url, operation, { body: options.body }, {
+    auth: options.auth,
+    middleware: options.middleware,
+    fetch: options.fetch,
+    timeoutMs: options.timeoutMs,
+    signal: options.signal,
+    accept: options.accept ?? ContentType.SSE,
+    onEvent: options.onEvent,
   })
 }
 
