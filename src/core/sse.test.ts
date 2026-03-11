@@ -195,6 +195,16 @@ describe('parseSSE', () => {
     expect(body.locked).toBe(false)
   })
 
+  it('throws on invalid UTF-8 data', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([0xFF, 0xFE]))
+        controller.close()
+      },
+    })
+    await expect(collect(body)).rejects.toThrow('SSE stream contains invalid UTF-8 data')
+  })
+
   it('handles a realistic OpenAI-style stream', async () => {
     const stream = [
       'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',

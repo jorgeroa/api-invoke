@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createClient } from './client'
+import { createClient, ApiInvokeClient } from './client'
+import { defineAPI } from './adapters/manual/builder'
+import { ContentType } from './core/types'
 
 function mockFetchResponse(body: string, options: { ok?: boolean; status?: number; contentType?: string } = {}) {
   const { ok = true, status = 200, contentType = 'application/json' } = options
@@ -107,5 +109,70 @@ describe('tryContentDetection', () => {
     const fetch = vi.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'))
     const client = await createClient('https://api.example.com/v1/users', { fetch })
     expect(client.operations.length).toBe(1)
+  })
+})
+
+// === executeStream ===
+
+function mockSSEFetch(sseText: string, status = 200) {
+  const encoder = new TextEncoder()
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(sseText))
+      controller.close()
+    },
+  })
+  return vi.fn().mockResolvedValue(
+    new Response(body, { status, statusText: 'OK', headers: { 'content-type': ContentType.SSE } })
+  )
+}
+
+describe('ApiInvokeClient.executeStream', () => {
+  const api = defineAPI('Test API')
+    .baseUrl('https://api.example.com')
+    .get('/stream', { id: 'streamEvents' })
+    .build()
+
+  it('streams SSE events from a named operation', async () => {
+    const fetch = mockSSEFetch('data: hello\n\ndata: world\n\n')
+    const client = new ApiInvokeClient(api, { fetch })
+    const result = await client.executeStream('streamEvents')
+
+    const events = []
+    for await (const event of result.stream) {
+      events.push(event.data)
+    }
+    expect(events).toEqual(['hello', 'world'])
+  })
+
+  it('throws on unknown operation ID', async () => {
+    const client = new ApiInvokeClient(api)
+    await expect(
+      client.executeStream('nonexistent')
+    ).rejects.toThrow('Operation "nonexistent" not found. Available: streamEvents')
+  })
+
+  it('uses per-call auth over client-level auth', async () => {
+    const fetch = mockSSEFetch('data: x\n\n')
+    const client = new ApiInvokeClient(api, {
+      fetch,
+      auth: { type: 'bearer' as const, token: 'client-token' },
+    })
+    await client.executeStream('streamEvents', {}, {
+      auth: { type: 'bearer' as const, token: 'call-token' },
+    })
+
+    const [, init] = fetch.mock.calls[0]
+    expect(init.headers['Authorization']).toBe('Bearer call-token')
+  })
+
+  it('forwards signal option', async () => {
+    const fetch = mockSSEFetch('data: x\n\n')
+    const controller = new AbortController()
+    const client = new ApiInvokeClient(api, { fetch })
+    await client.executeStream('streamEvents', {}, { signal: controller.signal })
+
+    const [, init] = fetch.mock.calls[0]
+    expect(init.signal).toBe(controller.signal)
   })
 })

@@ -44,6 +44,8 @@ export interface ExecuteOptions extends BuildRequestOptions {
   signal?: AbortSignal
   /** Redirect behavior passed to fetch. Unset by default (fetch implementations typically default to 'follow'). */
   redirect?: RequestInit['redirect']
+  /** Extra headers to merge into the request. Applied after buildRequest, so they override spec-derived headers. */
+  headers?: Record<string, string>
 }
 
 export type { BuiltRequest }
@@ -149,9 +151,15 @@ async function executeFetch(
     accept: options.accept,
   })
 
+  // Merge extra headers (overrides spec-derived headers)
+  if (options.headers) {
+    Object.assign(headers, options.headers)
+  }
+
   // Build abort signal (timeout + caller signal)
   let signal: AbortSignal | undefined = options.signal
   let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let abortHandler: (() => void) | undefined
 
   if (options.timeoutMs && options.timeoutMs > 0) {
     const controller = new AbortController()
@@ -159,7 +167,8 @@ async function executeFetch(
 
     if (options.signal) {
       // Combine caller signal with timeout signal
-      options.signal.addEventListener('abort', () => controller.abort(), { once: true })
+      abortHandler = () => controller.abort()
+      options.signal.addEventListener('abort', abortHandler, { once: true })
     }
     signal = controller.signal
   }
@@ -185,11 +194,15 @@ async function executeFetch(
     response = await fetchFn(url, init)
   } catch (error) {
     if (timeoutId) clearTimeout(timeoutId)
+    if (abortHandler && options.signal) options.signal.removeEventListener('abort', abortHandler)
 
     if (options.middleware) {
       for (const mw of options.middleware) {
         if (mw.onError) {
-          try { mw.onError(error as Error) } catch { /* middleware must not mask the original error */ }
+          const normalized = error instanceof Error ? error : new Error(String(error))
+          try { mw.onError(normalized) } catch (mwError) {
+            console.warn(`[api-invoke] middleware "${mw.name ?? 'unnamed'}" onError handler threw (suppressed):`, mwError)
+          }
         }
       }
     }
@@ -220,6 +233,7 @@ async function executeFetch(
   }
 
   if (timeoutId) clearTimeout(timeoutId)
+  if (abortHandler && options.signal) options.signal.removeEventListener('abort', abortHandler)
   const elapsedMs = Math.round(performance.now() - start)
 
   // Apply response middleware
@@ -365,6 +379,7 @@ export async function executeRaw(
     signal: options.signal,
     accept: options.accept,
     redirect: options.redirect,
+    headers: options.headers,
   })
 }
 
@@ -450,6 +465,7 @@ export async function executeRawStream(
   url: string,
   options: {
     method?: string
+    headers?: Record<string, string>
     body?: string
     auth?: Auth | Auth[]
     middleware?: Middleware[]
@@ -457,6 +473,7 @@ export async function executeRawStream(
     timeoutMs?: number
     signal?: AbortSignal
     accept?: string
+    redirect?: RequestInit['redirect']
     onEvent?: (event: SSEEvent) => void
   } = {},
 ): Promise<StreamingExecutionResult> {
@@ -474,7 +491,9 @@ export async function executeRawStream(
     fetch: options.fetch,
     timeoutMs: options.timeoutMs,
     signal: options.signal,
-    accept: options.accept ?? ContentType.SSE,
+    accept: options.accept,
+    redirect: options.redirect,
+    headers: options.headers,
     onEvent: options.onEvent,
   })
 }

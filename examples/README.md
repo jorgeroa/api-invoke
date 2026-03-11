@@ -34,6 +34,7 @@ npx tsx examples/01-quick-start.ts
 | [05-authentication.ts](05-authentication.ts) | Bearer, Basic, API key, OAuth2, and Cookie auth lifecycle | HTTPBin |
 | [06-error-handling.ts](06-error-handling.ts) | Error classification, `ErrorKind`, non-throwing mode | HTTPBin |
 | [07-middleware.ts](07-middleware.ts) | Retry, logging, and custom middleware | HTTPBin |
+| [08-streaming.ts](08-streaming.ts) | Stream real-time SSE events (Wikimedia live edits) | Wikimedia EventStreams |
 | [browser/index.html](browser/index.html) | Browser usage with CORS proxy middleware | JokeAPI |
 
 ## Browser example

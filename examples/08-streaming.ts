@@ -9,7 +9,7 @@
  * Run: npx tsx examples/08-streaming.ts
  */
 
-import { ApiInvokeClient, defineAPI } from '../src'
+import { ApiInvokeClient, defineAPI } from 'api-invoke'
 
 // Define the Wikimedia EventStreams API
 const api = defineAPI('Wikimedia EventStreams')
@@ -33,7 +33,8 @@ for await (const event of result.stream) {
   try {
     change = JSON.parse(event.data)
   } catch {
-    continue // skip non-JSON events (keep-alives, etc.)
+    console.debug(`[skipped non-JSON event] ${event.data.slice(0, 80)}`)
+    continue
   }
   const { wiki, title, user, type } = change
   console.log(`[${wiki}] ${type}: "${title}" by ${user}`)

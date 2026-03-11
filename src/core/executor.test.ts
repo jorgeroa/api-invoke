@@ -768,10 +768,6 @@ describe('executeOperationStream', () => {
   })
 
   it('parses JSON error body on HTTP error', async () => {
-    const encoder = new TextEncoder()
-    const body = new ReadableStream({
-      start(controller) { controller.close() },
-    })
     const fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: 'bad request' }), {
         status: 400,

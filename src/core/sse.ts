@@ -91,7 +91,11 @@ export async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerato
       const { done, value } = await reader.read()
       if (done) break
 
-      buffer += decoder.decode(value, { stream: true })
+      try {
+        buffer += decoder.decode(value, { stream: true })
+      } catch (decodeError) {
+        throw new Error('SSE stream contains invalid UTF-8 data', { cause: decodeError })
+      }
 
       // Split on \r\n, \r, or \n — handle all line endings
       // Process complete lines, keep incomplete last segment in buffer
@@ -113,7 +117,11 @@ export async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerato
     }
 
     // Flush remaining buffer
-    buffer += decoder.decode()
+    try {
+      buffer += decoder.decode()
+    } catch (decodeError) {
+      throw new Error('SSE stream contains invalid UTF-8 data', { cause: decodeError })
+    }
     if (buffer.length > 0) {
       const event = processLine(buffer)
       if (event) yield event
