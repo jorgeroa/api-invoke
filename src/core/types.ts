@@ -176,19 +176,33 @@ export interface ExecutionResult {
 
 // === Streaming ===
 
+/**
+ * A parsed Server-Sent Event.
+ * @see https://html.spec.whatwg.org/multipage/server-sent-events.html#concept-event-stream-last-event-id
+ */
 export interface SSEEvent {
   event?: string
   data: string
+  /** Last event ID. Per spec, values containing U+0000 NULL are ignored by the parser. */
   id?: string
+  /** Reconnection time in milliseconds. Must be a non-negative integer per spec. */
   retry?: number
 }
 
+/**
+ * Result of a streaming API call. Errors always throw before this object is constructed,
+ * so `status` is guaranteed to be 2xx. The `stream` is single-use — iterating it twice
+ * will fail since the underlying ReadableStream reader can only be consumed once.
+ * Unlike `ExecutionResult`, `elapsedMs` represents time-to-first-byte (not total request time)
+ * and `errorKind` is absent (errors throw, no non-throwing mode for streams).
+ */
 export interface StreamingExecutionResult {
   status: number
   stream: AsyncIterable<SSEEvent>
   contentType: string
   headers: Record<string, string>
   request: BuiltRequest
+  elapsedMs: number
 }
 
 // === Enricher ===

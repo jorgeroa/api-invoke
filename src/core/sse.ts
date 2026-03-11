@@ -7,7 +7,7 @@ import type { SSEEvent } from './types'
  */
 export async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerator<SSEEvent> {
   const reader = body.getReader()
-  const decoder = new TextDecoder()
+  const decoder = new TextDecoder('utf-8', { fatal: true })
   let buffer = ''
 
   // Event accumulator
@@ -71,11 +71,13 @@ export async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerato
         eventType = value
         break
       case 'id':
-        id = value
+        // Per WHATWG spec, ignore id fields containing U+0000 NULL
+        if (!value.includes('\0')) id = value
         break
       case 'retry': {
+        // Per WHATWG spec, retry must consist of only ASCII digits (non-negative integer)
         const n = parseInt(value, 10)
-        if (!isNaN(n) && String(n) === value) retry = n
+        if (!isNaN(n) && n >= 0 && String(n) === value) retry = n
         break
       }
       // Unknown fields are ignored per spec

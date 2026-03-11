@@ -132,6 +132,69 @@ describe('parseSSE', () => {
     expect(events).toEqual([{ data: ' two spaces' }])
   })
 
+  it('ignores negative retry values per spec', async () => {
+    const events = await collect(streamFrom('retry: -1000\ndata: msg\n\n'))
+    expect(events).toEqual([{ data: 'msg' }])
+  })
+
+  it('ignores retry with decimal values', async () => {
+    const events = await collect(streamFrom('retry: 3000.5\ndata: msg\n\n'))
+    expect(events).toEqual([{ data: 'msg' }])
+  })
+
+  it('ignores id fields containing NULL character', async () => {
+    const events = await collect(streamFrom('id: has\0null\ndata: msg\n\n'))
+    expect(events).toEqual([{ data: 'msg' }])
+  })
+
+  it('handles bare \\r line endings', async () => {
+    const events = await collect(streamFrom('data: hello\r\rdata: world\r\r'))
+    expect(events).toEqual([{ data: 'hello' }, { data: 'world' }])
+  })
+
+  it('yields nothing for an empty stream', async () => {
+    const events = await collect(streamFrom(''))
+    expect(events).toEqual([])
+  })
+
+  it('yields nothing for comment-only stream', async () => {
+    const events = await collect(streamFrom(': just a comment\n'))
+    expect(events).toEqual([])
+  })
+
+  it('propagates stream read errors', async () => {
+    let pullCount = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pullCount++
+        if (pullCount === 1) {
+          controller.enqueue(new TextEncoder().encode('data: first\n\n'))
+        } else {
+          controller.error(new Error('connection reset'))
+        }
+      },
+    })
+    const events: SSEEvent[] = []
+    await expect(async () => {
+      for await (const event of parseSSE(body)) {
+        events.push(event)
+      }
+    }).rejects.toThrow('connection reset')
+    expect(events).toEqual([{ data: 'first' }])
+  })
+
+  it('releases reader lock on early consumer break', async () => {
+    const body = streamFrom('data: a\n\ndata: b\n\ndata: c\n\n')
+    const events: SSEEvent[] = []
+    for await (const event of parseSSE(body)) {
+      events.push(event)
+      if (events.length === 1) break
+    }
+    expect(events).toEqual([{ data: 'a' }])
+    // Reader lock should be released — body should not be locked
+    expect(body.locked).toBe(false)
+  })
+
   it('handles a realistic OpenAI-style stream', async () => {
     const stream = [
       'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',

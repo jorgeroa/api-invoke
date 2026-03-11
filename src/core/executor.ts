@@ -384,12 +384,17 @@ export async function executeOperationStream(
     accept: options.accept ?? operation.responseContentType ?? ContentType.SSE,
   }
 
-  const { response, request, headers: responseHeaders } = await executeFetch(baseUrl, operation, args, streamOptions)
+  const { response, request, headers: responseHeaders, elapsedMs } = await executeFetch(baseUrl, operation, args, streamOptions)
 
   // Always throw on HTTP errors for streams
   if (!response.ok) {
     let body: unknown
-    try { body = await response.text() } catch { /* ignore */ }
+    try {
+      const text = await response.text()
+      try { body = JSON.parse(text) } catch { body = text }
+    } catch (readError) {
+      body = `[api-invoke: failed to read error response body: ${readError instanceof Error ? readError.message : String(readError)}]`
+    }
     if (response.status === 401 || response.status === 403) {
       throw authError(request.url, response.status as 401 | 403, body)
     }
@@ -402,6 +407,11 @@ export async function executeOperationStream(
 
   const contentType = response.headers.get(HeaderName.CONTENT_TYPE) || ''
 
+  // Warn if the response is not SSE — the server may have ignored the Accept header
+  if (contentType && !contentType.includes('text/event-stream')) {
+    console.warn(`[api-invoke] Expected content-type text/event-stream but got "${contentType}" — SSE parsing may produce unexpected results`)
+  }
+
   // Wrap SSE parser with optional onEvent callback
   let stream: AsyncIterable<SSEEvent> = parseSSE(response.body)
   if (options.onEvent) {
@@ -409,7 +419,14 @@ export async function executeOperationStream(
     const onEvent = options.onEvent
     stream = (async function* () {
       for await (const event of inner) {
-        onEvent(event)
+        try {
+          onEvent(event)
+        } catch (callbackError) {
+          throw new Error(
+            `onEvent callback threw for event "${event.event ?? 'message'}": ${callbackError instanceof Error ? callbackError.message : String(callbackError)}`,
+            { cause: callbackError },
+          )
+        }
         yield event
       }
     })()
@@ -421,6 +438,7 @@ export async function executeOperationStream(
     contentType,
     headers: responseHeaders,
     request,
+    elapsedMs,
   }
 }
 
@@ -432,7 +450,6 @@ export async function executeRawStream(
   url: string,
   options: {
     method?: string
-    headers?: Record<string, string>
     body?: string
     auth?: Auth | Auth[]
     middleware?: Middleware[]

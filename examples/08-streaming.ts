@@ -29,7 +29,12 @@ console.log('Streaming live Wikipedia edits...\n')
 
 let count = 0
 for await (const event of result.stream) {
-  const change = JSON.parse(event.data)
+  let change
+  try {
+    change = JSON.parse(event.data)
+  } catch {
+    continue // skip non-JSON events (keep-alives, etc.)
+  }
   const { wiki, title, user, type } = change
   console.log(`[${wiki}] ${type}: "${title}" by ${user}`)
 

@@ -125,7 +125,7 @@ export class ApiInvokeClient {
   async executeStream(
     operationId: string,
     args: Record<string, unknown> = {},
-    options?: { auth?: Auth | Auth[]; accept?: string; onEvent?: (event: SSEEvent) => void },
+    options?: { auth?: Auth | Auth[]; accept?: string; signal?: AbortSignal; onEvent?: (event: SSEEvent) => void },
   ): Promise<StreamingExecutionResult> {
     const operation = this.findOperation(operationId)
     if (!operation) {
@@ -138,6 +138,7 @@ export class ApiInvokeClient {
       fetch: this.fetchFn,
       timeoutMs: this.timeoutMs,
       accept: options?.accept,
+      signal: options?.signal,
       onEvent: options?.onEvent,
     })
   }

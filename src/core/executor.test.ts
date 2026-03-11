@@ -760,6 +760,59 @@ describe('executeOperationStream', () => {
     ).rejects.toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.PARSE })
   })
 
+  it('throws authError on 403', async () => {
+    const fetch = mockSSEFetch('', 403)
+    await expect(
+      executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+    ).rejects.toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.AUTH, status: 403 })
+  })
+
+  it('parses JSON error body on HTTP error', async () => {
+    const encoder = new TextEncoder()
+    const body = new ReadableStream({
+      start(controller) { controller.close() },
+    })
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'bad request' }), {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: { 'content-type': ContentType.SSE },
+      })
+    )
+    await expect(
+      executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+    ).rejects.toMatchObject({
+      name: API_INVOKE_ERROR_NAME,
+      kind: ErrorKind.HTTP,
+      responseBody: { error: 'bad request' },
+    })
+  })
+
+  it('wraps onEvent callback errors with context', async () => {
+    const fetch = mockSSEFetch('data: a\n\n')
+    const result = await executeOperationStream(baseUrl, getOp, { id: '1' }, {
+      fetch,
+      onEvent: () => { throw new Error('callback bug') },
+    })
+
+    await expect(async () => {
+      for await (const _ of result.stream) { /* consume */ }
+    }).rejects.toThrow('onEvent callback threw')
+  })
+
+  it('includes elapsedMs in result', async () => {
+    const fetch = mockSSEFetch('data: x\n\n')
+    const result = await executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
+    expect(result.elapsedMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('uses explicit accept option over default', async () => {
+    const fetch = mockSSEFetch('data: x\n\n')
+    await executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch, accept: 'text/plain' })
+    const [, init] = fetch.mock.calls[0]
+    expect(init.headers[HeaderName.ACCEPT]).toBe('text/plain')
+  })
+
   it('includes request metadata in result', async () => {
     const fetch = mockSSEFetch('data: x\n\n')
     const result = await executeOperationStream(baseUrl, getOp, { id: '1' }, { fetch })
