@@ -21,7 +21,7 @@ export interface AuthenticatedRequest {
  * Accepts a single Auth or an array for composing multiple schemes (e.g. API key + bearer).
  *
  * @param url - The request URL
- * @param headers - Existing request headers (will be shallow-copied, not mutated)
+ * @param headers - Existing request headers (shallow-copied internally)
  * @param auth - Credentials to inject (single or array)
  * @returns New URL and headers with auth applied
  */

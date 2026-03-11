@@ -19,7 +19,7 @@ import { extractOpenAPI3BaseUrl, extractSwagger2BaseUrl } from './base-url'
 import { mapSecuritySchemes } from './security'
 import { deriveBaseUrl } from '../../core/url-builder'
 
-/** Standard OpenAPI path item methods (HEAD/OPTIONS excluded — not typical API operations). */
+/** Standard OpenAPI path item methods parsed from specs. HEAD/OPTIONS excluded from spec parsing — use the manual builder or raw URLs for these methods. */
 const SUPPORTED_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
 
 /**

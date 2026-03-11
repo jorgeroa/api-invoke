@@ -8,7 +8,12 @@ import { ParamLocation } from './types'
 
 /**
  * Build a full URL from base URL, operation path, and arguments.
- * Handles path params, query params, and slash normalization.
+ * Handles path parameter interpolation, query parameter serialization, and slash normalization.
+ *
+ * @param baseUrl - Base URL for the API (e.g. 'https://api.example.com/v1')
+ * @param operation - The operation containing path template and parameter definitions
+ * @param args - Key-value pairs for path and query parameters
+ * @returns Fully resolved URL string with parameters substituted
  */
 export function buildUrl(
   baseUrl: string,
@@ -46,7 +51,10 @@ export function buildUrl(
 
 /**
  * Derive a base URL from a spec URL by stripping the filename.
- * e.g., "https://api.example.com/v1/openapi.json" → "https://api.example.com/v1"
+ * e.g., `"https://api.example.com/v1/openapi.json"` → `"https://api.example.com/v1"`
+ *
+ * @param specUrl - URL pointing to an API spec file
+ * @returns Base URL with the filename removed, or empty string if the URL is invalid
  */
 export function deriveBaseUrl(specUrl: string): string {
   try {
@@ -61,6 +69,10 @@ export function deriveBaseUrl(specUrl: string): string {
 
 /**
  * Extract header parameters from operation args.
+ *
+ * @param parameters - Operation parameter definitions
+ * @param args - Key-value pairs of argument values
+ * @returns Headers object with only the header-type parameters that have values
  */
 export function extractHeaderParams(
   parameters: Parameter[],
@@ -78,7 +90,10 @@ export function extractHeaderParams(
 /**
  * Extract cookie parameters from operation args as a Cookie header value.
  * Uses schema defaults when the arg is not explicitly supplied.
- * Returns undefined if no cookie params are present or provided.
+ *
+ * @param parameters - Operation parameter definitions
+ * @param args - Key-value pairs of argument values
+ * @returns Cookie header string (e.g. 'name=value; other=val'), or undefined if no cookie params are present
  */
 export function extractCookieParams(
   parameters: Parameter[],

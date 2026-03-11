@@ -3,6 +3,10 @@ import type { SSEEvent } from './types'
 /**
  * Parse a Server-Sent Events stream into an async iterable of events.
  * Implements the WHATWG SSE parsing algorithm.
+ *
+ * @param body - ReadableStream from a fetch response (e.g. `response.body`)
+ * @returns Async generator yielding parsed {@link SSEEvent} objects
+ * @throws {Error} If the stream contains invalid UTF-8 data
  * @see https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream
  */
 export async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerator<SSEEvent> {

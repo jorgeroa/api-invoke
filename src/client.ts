@@ -156,7 +156,7 @@ export class ApiInvokeClient {
    *
    * @param operationId - The operation ID from the parsed spec
    * @param args - Key-value pairs for path, query, header, and body parameters
-   * @param options - Per-call overrides for auth, accept header, abort signal, and event callback
+   * @param options - Per-call overrides for auth, accept header, abort signal, and event callback. The client-level `timeoutMs` applies to the initial connection.
    * @returns Streaming result with an async iterable `stream` property
    * @throws {ApiInvokeError} For network, CORS, timeout, and HTTP errors
    * @throws {Error} If the operation ID is not found

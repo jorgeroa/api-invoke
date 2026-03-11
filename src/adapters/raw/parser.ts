@@ -26,7 +26,7 @@ export interface RawEndpoint {
  * Query parameters from the URL become configurable operation parameters.
  *
  * @param url - Absolute URL (e.g. 'https://api.example.com/users?page=1')
- * @returns A ParsedAPI with a single GET operation
+ * @returns A ParsedAPI with a single operation
  * @throws {Error} If the URL is not a valid absolute URL
  */
 export function parseRawUrl(url: string): ParsedAPI {

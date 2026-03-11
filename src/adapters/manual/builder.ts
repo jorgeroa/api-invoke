@@ -40,7 +40,7 @@ export interface EndpointOptions {
 
 /**
  * Parameter definition for the manual builder.
- * All fields are optional — defaults to a non-required query string parameter.
+ * All fields are optional — defaults to a non-required query string parameter of type 'string'.
  */
 export type ParamDef = {
   /** Where the parameter appears. Default: 'query' (path params are always forced to 'path'). */

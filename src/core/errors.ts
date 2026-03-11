@@ -34,7 +34,7 @@ export const API_INVOKE_ERROR_NAME = 'ApiInvokeError' as const
  * @example
  * ```ts
  * try {
- *   await client.execute('getUser', { id: 1 })
+ *   await client.execute('getUser', { userId: 123 })
  * } catch (error) {
  *   if (error instanceof ApiInvokeError) {
  *     console.log(error.kind)       // 'auth', 'network', 'rate-limit', etc.

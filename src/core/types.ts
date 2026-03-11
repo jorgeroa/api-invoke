@@ -246,7 +246,7 @@ export type Auth =
 
 /**
  * A fully constructed HTTP request ready to be sent (or previewed).
- * Returned by {@link buildRequest} for dry-run/preview use cases.
+ * Produced by {@link buildRequest} and included in execution results for debugging.
  */
 export interface BuiltRequest {
   /** HTTP method (e.g. 'GET', 'POST'). */
@@ -272,7 +272,7 @@ export type ResultErrorKind = typeof ErrorKind.AUTH | typeof ErrorKind.RATE_LIMI
 export interface ExecutionResult {
   /** HTTP status code (e.g. 200, 404, 500). */
   status: number
-  /** Parsed response body. JSON responses are parsed to objects; binary responses are ArrayBuffers; others are strings. */
+  /** Parsed response body. JSON responses are parsed to objects; binary responses are ArrayBuffers; others attempt JSON parsing before falling back to strings. */
   data: unknown
   /** Response content type from the Content-Type header (e.g. 'application/json', 'text/xml'). */
   contentType: string
@@ -293,7 +293,7 @@ export interface ExecutionResult {
  * @see https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events
  */
 export interface SSEEvent {
-  /** Event type (e.g. 'message', 'error'). Undefined for unnamed events. */
+  /** Event type (e.g. 'message', 'error'). Absent when no `event:` field was set in the stream. */
   event?: string
   /** Event payload. For JSON-encoded events, this is the raw string — parse it with `JSON.parse()`. */
   data: string
@@ -353,7 +353,7 @@ export interface ClientOptions {
   auth?: Auth | Auth[]
   /** Middleware pipeline applied to every request/response (e.g. logging, CORS proxy). */
   middleware?: Middleware[]
-  /** Custom fetch implementation. Defaults to `globalThis.fetch`. Useful for testing or adding retry logic. */
+  /** Custom fetch implementation. Defaults to `globalThis.fetch`. Useful for testing or wrapping with {@link withRetry}. */
   fetch?: typeof globalThis.fetch
   /** Post-parse enricher that transforms the ParsedAPI before client construction. */
   enricher?: Enricher
@@ -383,6 +383,7 @@ export interface Middleware {
   /**
    * Called when a fetch error occurs (network failure, CORS, timeout).
    * For logging/monitoring only — cannot recover from the error.
+   * Exceptions thrown by this handler are suppressed (logged as warnings).
    */
   onError?(error: Error): void
 }

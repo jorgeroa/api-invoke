@@ -1,5 +1,5 @@
 /**
- * Retry middleware — exponential backoff with Retry-After header support.
+ * Retry fetch wrapper — exponential backoff with Retry-After header support.
  *
  * Works by wrapping the fetch function rather than using middleware hooks,
  * since retry logic needs to re-execute the entire request.

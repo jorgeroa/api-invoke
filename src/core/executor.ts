@@ -38,7 +38,7 @@ export interface BuildRequestOptions {
 
 /**
  * Options for {@link executeOperation} and {@link executeOperationStream}.
- * Extends {@link BuildRequestOptions} with runtime concerns (middleware, fetch, timeout).
+ * Extends {@link BuildRequestOptions} with runtime and execution concerns.
  */
 export interface ExecuteOptions extends BuildRequestOptions {
   /** Middleware pipeline applied to the request/response. */
@@ -69,6 +69,7 @@ export type { BuiltRequest }
  * @param options - Auth and accept header overrides
  * @returns A fully constructed request ready to inspect or send manually
  * @throws {Error} If required parameters are missing
+ * @throws {TypeError} If the URL is malformed when using query-based API key auth
  */
 export function buildRequest(
   baseUrl: string,
@@ -370,7 +371,7 @@ export async function executeOperation(
  * Execute a raw HTTP request without an API spec (Tier 3: zero spec).
  * Still provides error classification, response parsing, and timing.
  *
- * @param url - Full URL to request (used as both base URL and path)
+ * @param url - Full URL to request
  * @param options - Request options (method, headers, body, auth, middleware)
  * @returns The execution result with parsed response data
  * @throws {ApiInvokeError} For network, CORS, timeout, parse, and (by default) HTTP errors
