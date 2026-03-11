@@ -58,7 +58,7 @@ describe('withOAuthRefresh', () => {
     // Verify retry uses new token
     const retryCall = baseFetch.mock.calls[2]
     const retryHeaders = retryCall[1].headers
-    expect(retryHeaders['Authorization'] ?? retryHeaders['authorization']).toBe('Bearer new_access_token')
+    expect(retryHeaders['Authorization']).toBe('Bearer new_access_token')
   })
 
   it('calls onTokenRefresh callback with new tokens', async () => {
@@ -84,10 +84,11 @@ describe('withOAuthRefresh', () => {
   })
 
   it('returns original 401 when refresh fails', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const baseFetch = vi.fn()
       .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
       // Token refresh fails
-      .mockResolvedValueOnce(new Response('invalid_grant', { status: 400 }))
+      .mockResolvedValueOnce(new Response('invalid_grant', { status: 400, statusText: 'Bad Request' }))
 
     const fetch = withOAuthRefresh({
       tokenUrl: 'https://auth.example.com/token',
@@ -96,6 +97,13 @@ describe('withOAuthRefresh', () => {
 
     const response = await fetch('https://api.example.com/data')
     expect(response.status).toBe(401)
+
+    // Verify warning was logged
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[api-invoke] OAuth2 token refresh failed'),
+      expect.stringContaining('400 Bad Request'),
+    )
+    warnSpy.mockRestore()
   })
 
   it('updates refresh token for subsequent refreshes', async () => {
@@ -142,5 +150,101 @@ describe('withOAuthRefresh', () => {
 
     const tokenBody = baseFetch.mock.calls[1][1].body
     expect(tokenBody).toContain('scope=read+write')
+  })
+
+  it('deduplicates concurrent refresh attempts', async () => {
+    let refreshCallCount = 0
+    const baseFetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === 'https://auth.example.com/token') {
+        refreshCallCount++
+        return Promise.resolve(mockTokenResponse('new_at'))
+      }
+      // First two calls return 401, retries return 200
+      if (!init?.headers || !(init.headers as Record<string, string>)['Authorization']?.includes('new_at')) {
+        return Promise.resolve(new Response('', { status: 401 }))
+      }
+      return Promise.resolve(new Response('ok', { status: 200 }))
+    })
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+    }, baseFetch)
+
+    // Fire two requests concurrently — both get 401
+    const [r1, r2] = await Promise.all([
+      fetch('https://api.example.com/a'),
+      fetch('https://api.example.com/b'),
+    ])
+
+    expect(r1.status).toBe(200)
+    expect(r2.status).toBe(200)
+    // Only one refresh should have occurred
+    expect(refreshCallCount).toBe(1)
+  })
+
+  it('retries with correct headers when init is undefined', async () => {
+    const baseFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(mockTokenResponse('new_at'))
+      .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+    }, baseFetch)
+
+    // Call without init argument
+    const response = await fetch('https://api.example.com/data')
+    expect(response.status).toBe(200)
+
+    const retryCall = baseFetch.mock.calls[2]
+    expect(retryCall[1].headers['Authorization']).toBe('Bearer new_at')
+  })
+
+  it('preserves method and body on retry', async () => {
+    const baseFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(mockTokenResponse('new_at'))
+      .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+    }, baseFetch)
+
+    await fetch('https://api.example.com/data', {
+      method: 'POST',
+      body: '{"name":"Alice"}',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer old' },
+    })
+
+    const retryCall = baseFetch.mock.calls[2]
+    expect(retryCall[1].method).toBe('POST')
+    expect(retryCall[1].body).toBe('{"name":"Alice"}')
+    expect(retryCall[1].headers['Content-Type']).toBe('application/json')
+  })
+
+  it('still returns response when onTokenRefresh callback throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const baseFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(mockTokenResponse('new_at'))
+      .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+      onTokenRefresh: () => { throw new Error('DB write failed') },
+    }, baseFetch)
+
+    const response = await fetch('https://api.example.com/data')
+    expect(response.status).toBe(200)
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[api-invoke] onTokenRefresh callback threw'),
+      'DB write failed',
+    )
+    warnSpy.mockRestore()
   })
 })

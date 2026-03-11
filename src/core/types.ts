@@ -102,7 +102,7 @@ export interface Operation {
   requestBody?: RequestBody
   /** Primary response schema from the first success status (200 → 201 → 202 → 2XX). Useful for code generation or validation. */
   responseSchema?: unknown
-  /** All response schemas keyed by HTTP status code (e.g. '200', '201', '204', 'default'). Includes success and error schemas. */
+  /** All response schemas keyed by HTTP status code (e.g. '200', '201', 'default'). Codes without schemas (e.g. 204 No Content) are omitted. */
   responseSchemas?: Record<string, unknown>
   /** Primary response content type (e.g. 'application/json', 'application/xml'). Used as the default Accept header. */
   responseContentType?: ContentType | string

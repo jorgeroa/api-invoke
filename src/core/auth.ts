@@ -93,7 +93,7 @@ export interface OAuth2TokenResult {
  *
  * @param tokenUrl - The OAuth2 token endpoint URL
  * @param refreshToken - The refresh token to exchange
- * @param options - Optional client credentials and custom fetch
+ * @param options - Optional client credentials, scopes, and custom fetch
  * @returns The new token set
  * @throws {Error} If the refresh request fails
  */
@@ -123,14 +123,37 @@ export async function refreshOAuth2Token(
   })
 
   if (!response.ok) {
-    throw new Error(`OAuth2 token refresh failed: ${response.status} ${response.statusText}`)
+    let errorDetail = ''
+    try {
+      const body = await response.text()
+      errorDetail = body ? `: ${body.slice(0, 500)}` : ''
+    } catch {
+      // Body unreadable, proceed with status-only message
+    }
+    throw new Error(`OAuth2 token refresh failed: ${response.status} ${response.statusText}${errorDetail}`)
   }
 
-  const data = await response.json() as Record<string, unknown>
+  let data: Record<string, unknown>
+  try {
+    data = await response.json() as Record<string, unknown>
+  } catch (parseError) {
+    throw new Error(
+      `OAuth2 token refresh succeeded (${response.status}) but response body is not valid JSON`,
+      { cause: parseError },
+    )
+  }
+
+  const accessToken = data.access_token
+  if (typeof accessToken !== 'string' || !accessToken) {
+    throw new Error(
+      `OAuth2 token refresh response missing required "access_token" field. Got keys: [${Object.keys(data).join(', ')}]`,
+    )
+  }
+
   return {
-    accessToken: data.access_token as string,
-    refreshToken: data.refresh_token as string | undefined,
-    expiresIn: data.expires_in as number | undefined,
+    accessToken,
+    refreshToken: typeof data.refresh_token === 'string' ? data.refresh_token : undefined,
+    expiresIn: typeof data.expires_in === 'number' ? data.expires_in : undefined,
   }
 }
 

@@ -115,13 +115,57 @@ describe('refreshOAuth2Token', () => {
     expect(init.body).toContain('scope=read')
   })
 
-  it('throws when refresh endpoint returns error', async () => {
+  it('throws when refresh endpoint returns error, including response body', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response('invalid_grant', { status: 400, statusText: 'Bad Request' })
     )
 
     await expect(
       refreshOAuth2Token('https://auth.example.com/token', 'rt_expired', { fetch: mockFetch })
-    ).rejects.toThrow('OAuth2 token refresh failed: 400 Bad Request')
+    ).rejects.toThrow('OAuth2 token refresh failed: 400 Bad Request: invalid_grant')
+  })
+
+  it('throws when response is 200 but missing access_token', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'server_error' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+
+    await expect(
+      refreshOAuth2Token('https://auth.example.com/token', 'rt_old', { fetch: mockFetch })
+    ).rejects.toThrow('missing required "access_token" field')
+  })
+
+  it('throws when response is 200 but body is not JSON', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('<html>error</html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      })
+    )
+
+    await expect(
+      refreshOAuth2Token('https://auth.example.com/token', 'rt_old', { fetch: mockFetch })
+    ).rejects.toThrow('not valid JSON')
+  })
+
+  it('sends request without client credentials or scopes when not provided', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ access_token: 'at' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+
+    await refreshOAuth2Token('https://auth.example.com/token', 'rt', { fetch: mockFetch })
+
+    const body = mockFetch.mock.calls[0][1].body
+    expect(body).toContain('grant_type=refresh_token')
+    expect(body).toContain('refresh_token=rt')
+    expect(body).not.toContain('client_id')
+    expect(body).not.toContain('client_secret')
+    expect(body).not.toContain('scope')
   })
 })
