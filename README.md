@@ -52,12 +52,14 @@ There are many ways to call APIs from JavaScript — from raw HTTP clients to fu
 | CORS detection + proxy | ❌ | N/A | — | — | ❌ | ❌ | ❌ | ✅ |
 | Middleware / hooks | interceptors | hooks | — | — | middleware | interceptors | interceptors | ✅ |
 | Manual API definitions | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| SSE streaming | manual&nbsp;⁴ | manual&nbsp;⁴ | ❌ | manual&nbsp;⁴ | manual&nbsp;⁴ | ❌ | ❌ | ✅ |
 | Browser + Node.js | ✅ | partial&nbsp;² | N/A | N/A | ✅ | ✅ | ✅ | ✅ |
 | Static TypeScript types | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | runtime&nbsp;³ |
 
 <sup>¹ openapi-fetch makes runtime fetch calls, but requires running openapi-typescript at build time to generate types.</sup><br/>
 <sup>² got is Node-only; ky is browser-first. Neither works universally out of the box.</sup><br/>
-<sup>³ api-invoke provides TypeScript types for its own API (ParsedAPI, Operation, etc.) but does not generate per-endpoint types from specs. If you know your APIs at build time, code generators give you better IntelliSense.</sup>
+<sup>³ api-invoke provides TypeScript types for its own API (ParsedAPI, Operation, etc.) but does not generate per-endpoint types from specs. If you know your APIs at build time, code generators give you better IntelliSense.</sup><br/>
+<sup>⁴ Raw stream access is available, but you must bring your own SSE parser (e.g. eventsource-parser). api-invoke includes a built-in WHATWG-compliant SSE parser returning `AsyncIterable<SSEEvent>`.</sup>
 
 ### Positioning
 
@@ -73,7 +75,7 @@ We believe in being upfront about where other tools are the better choice:
 
 - **Static types** — Code generators like [@hey-api/openapi-ts](https://github.com/hey-api/openapi-ts) and [orval](https://orval.dev/) give you full IntelliSense with endpoint-specific types. If you know your APIs at build time, they provide better TypeScript DX. `api-invoke` trades compile-time type safety for runtime flexibility.
 - **OAuth flows** — `api-invoke` intentionally accepts pre-obtained tokens — it doesn't implement auth code, device, or client-credentials flows. Platforms like [Composio](https://composio.dev/) and [Superface](https://superface.ai/) handle the full OAuth lifecycle.
-- **Streaming** — Not yet supported (on the [roadmap](#)). LLM streaming APIs currently need raw fetch or swagger-client.
+- **Streaming** — `api-invoke` supports SSE (Server-Sent Events) streaming, which covers most LLM APIs. Raw chunked transfer or WebSocket streaming is not yet supported.
 - **Language support** — [openapi-generator](https://openapi-generator.tech/) covers 40+ languages. `api-invoke` is JavaScript/TypeScript only.
 - **Managed platforms** — Tools like [Superface OneSDK](https://superface.ai/) and [Composio](https://composio.dev/) solve a different problem: managed integration platforms with pre-built connectors, auth management, and monitoring. `api-invoke` is a library you embed in your own code.
 
@@ -160,6 +162,7 @@ The [`examples/`](./examples) folder has runnable scripts demonstrating each fea
 | [`05-authentication.ts`](./examples/05-authentication.ts) | Full auth lifecycle: Bearer, Basic, API key, OAuth2, Cookie |
 | [`06-error-handling.ts`](./examples/06-error-handling.ts) | Error classification and non-throwing mode |
 | [`07-middleware.ts`](./examples/07-middleware.ts) | Retry, logging, and custom middleware |
+| [`08-streaming.ts`](./examples/08-streaming.ts) | Stream real-time SSE events (Wikimedia live edits) |
 | [`browser/index.html`](./examples/browser/index.html) | Browser usage with CORS proxy |
 
 ```bash
@@ -202,6 +205,57 @@ import { executeRaw } from 'api-invoke'
 const result = await executeRaw('https://api.spacexdata.com/v4/launches/latest')
 console.log(result.data)      // { name: 'Crew-9', ... }
 console.log(result.elapsedMs) // 142
+```
+
+## Streaming (SSE)
+
+For APIs that return Server-Sent Events — LLM token streaming, live feeds, real-time notifications — use the streaming variants. They return an `AsyncIterable<SSEEvent>` you can consume with `for await`.
+
+### Client streaming
+
+```typescript
+import { ApiInvokeClient, defineAPI } from 'api-invoke'
+
+const api = defineAPI('Wikimedia EventStreams')
+  .baseUrl('https://stream.wikimedia.org')
+  .get('/v2/stream/recentchange', { id: 'recentChanges' })
+  .build()
+
+const client = new ApiInvokeClient(api)
+const result = await client.executeStream('recentChanges')
+
+for await (const event of result.stream) {
+  const change = JSON.parse(event.data)
+  console.log(`[${change.wiki}] ${change.type}: "${change.title}" by ${change.user}`)
+}
+```
+
+### Raw streaming (no spec)
+
+```typescript
+import { executeRawStream } from 'api-invoke'
+
+const result = await executeRawStream('https://api.openai.com/v1/chat/completions', {
+  body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'user', content: 'Hi' }], stream: true }),
+  auth: { type: 'bearer', token: process.env.OPENAI_API_KEY! },
+})
+
+for await (const event of result.stream) {
+  if (event.data === '[DONE]') break
+  const chunk = JSON.parse(event.data)
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? '')
+}
+```
+
+Each `SSEEvent` gives you the raw fields from the stream:
+
+```typescript
+interface SSEEvent {
+  data: string      // The data field (always present)
+  event?: string    // Named event type
+  id?: string       // Last event ID
+  retry?: number    // Reconnection interval (ms)
+}
 ```
 
 ## Middleware
@@ -304,15 +358,17 @@ The parsed API uses spec-agnostic types that work regardless of the source forma
 
 ```typescript
 import type {
-  ParsedAPI,        // Parsed spec with operations, auth schemes, and metadata
-  Operation,        // Single API operation (id, path, method, parameters, body)
-  Parameter,        // Path, query, header, or cookie parameter with schema
-  RequestBody,      // POST/PUT/PATCH body definition
-  Auth,             // Authentication credentials (bearer, basic, apiKey, oauth2)
-  AuthScheme,       // Auth scheme detected from the spec
-  ExecutionResult,  // Response from an executed operation
-  Middleware,       // Request/response interceptor
-  Enricher,         // Post-parse API transformer
+  ParsedAPI,                // Parsed spec with operations, auth schemes, and metadata
+  Operation,                // Single API operation (id, path, method, parameters, body)
+  Parameter,                // Path, query, header, or cookie parameter with schema
+  RequestBody,              // POST/PUT/PATCH body definition
+  Auth,                     // Authentication credentials (bearer, basic, apiKey, oauth2)
+  AuthScheme,               // Auth scheme detected from the spec
+  ExecutionResult,          // Response from an executed operation
+  SSEEvent,                 // Single event from an SSE stream
+  StreamingExecutionResult, // Response from a streaming execution
+  Middleware,               // Request/response interceptor
+  Enricher,                 // Post-parse API transformer
 } from 'api-invoke'
 ```
 
