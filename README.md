@@ -2,6 +2,8 @@
 
 **Call any REST API at runtime. No code generation. No build step.**
 
+Think of it as **reflection for REST APIs** — discover and invoke any API's operations at runtime, whether from a full spec or just a URL, no code generation required.
+
 Give it an OpenAPI spec (v2 or v3), a raw URL, or a manually defined endpoint — `api-invoke` parses it into a uniform interface, handles authentication, builds requests, classifies errors, and executes calls. Works in Node.js and the browser.
 
 ```typescript
