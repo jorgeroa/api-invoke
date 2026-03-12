@@ -4,3 +4,4 @@ docs/
 *.tsbuildinfo
 .env
 .planning/
+.DS_Store
