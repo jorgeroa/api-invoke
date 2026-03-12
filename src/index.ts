@@ -45,6 +45,7 @@ export {
   authError,
   httpError,
   parseError,
+  graphqlError,
   timeoutError,
 } from './core/errors'
 

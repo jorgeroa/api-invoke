@@ -12,7 +12,11 @@ import { parseRawUrl } from './adapters/raw/parser'
  * Heuristic: detect if a URL points to a GraphQL endpoint by URL pattern.
  */
 function isGraphQLUrl(url: string): boolean {
-  return /\/graphql\b/i.test(url)
+  try {
+    return /\/graphql(?:$|[\/\?#])/i.test(new URL(url).pathname)
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -215,7 +219,7 @@ export class ApiInvokeClient {
  *
  * Auto-detection logic:
  * - OpenAPI spec URL (e.g. ends with `/openapi.json`) → parsed spec with all operations
- * - GraphQL endpoint URL (ends with `/graphql`) → introspection query, one operation per field
+ * - GraphQL endpoint URL (path contains `/graphql`) → introspection query, one operation per field
  * - Raw URL → attempts content-based spec detection, falls back to single-operation raw mode
  * - GraphQL introspection object (`{ __schema }` or `{ data: { __schema } }`) → parsed directly
  * - OpenAPI spec object (parsed JSON/YAML) → parsed directly

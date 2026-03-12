@@ -4,7 +4,7 @@
  */
 
 import type { ExecutionResult } from '../../core/types'
-import { ApiInvokeError, ErrorKind } from '../../core/errors'
+import { graphqlError } from '../../core/errors'
 
 /** A single GraphQL error from the response `errors` array. */
 export interface GraphQLError {
@@ -14,7 +14,7 @@ export interface GraphQLError {
   extensions?: Record<string, unknown>
 }
 
-/** Check if an ExecutionResult contains GraphQL errors. */
+/** Check if an ExecutionResult contains GraphQL errors. Returns true for both total and partial errors. Use {@link throwOnGraphQLErrors} to throw only on total failures (when `data` is null). */
 export function hasGraphQLErrors(result: ExecutionResult): boolean {
   const body = result.data as Record<string, unknown> | null
   return body != null && Array.isArray(body.errors) && body.errors.length > 0
@@ -38,12 +38,5 @@ export function throwOnGraphQLErrors(result: ExecutionResult): void {
 
   const errors = body.errors as GraphQLError[]
   const messages = errors.map(e => e.message).join('; ')
-  throw new ApiInvokeError({
-    kind: ErrorKind.GRAPHQL,
-    message: `GraphQL errors: ${messages}`,
-    suggestion: 'Check the query and variables for correctness.',
-    retryable: false,
-    status: result.status,
-    responseBody: body,
-  })
+  throw graphqlError(messages, result.status, body)
 }

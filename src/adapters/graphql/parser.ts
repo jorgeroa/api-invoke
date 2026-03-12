@@ -12,7 +12,7 @@ import { buildQueryString, unwrapType, isNonNull, formatTypeRef } from './query-
 
 /** Options for parsing a GraphQL schema. */
 export interface GraphQLParseOptions {
-  /** GraphQL endpoint URL. Required when input is introspection JSON (to set baseUrl). Inferred when input is a URL string. */
+  /** GraphQL endpoint URL. Strongly recommended when input is introspection JSON — without it, baseUrl defaults to '/graphql' (a relative path). Inferred automatically when input is a URL string. */
   endpoint?: string
   /** Custom fetch implementation for introspection queries. Defaults to `globalThis.fetch`. */
   fetch?: typeof globalThis.fetch
@@ -133,13 +133,16 @@ async function fetchIntrospection(
   }
 
   let json: Record<string, unknown>
+  const cloned = response.clone()
   try {
     json = await response.json() as Record<string, unknown>
-  } catch {
+  } catch (err) {
+    let body: string | undefined
+    try { body = (await cloned.text()).slice(0, 200) } catch { /* ignore */ }
     throw new ApiInvokeError({
       kind: ErrorKind.PARSE,
-      message: `GraphQL introspection response from ${url} is not valid JSON.`,
-      suggestion: 'The endpoint returned a non-JSON response. Verify it is a GraphQL endpoint.',
+      message: `GraphQL introspection response from ${url} is not valid JSON${err instanceof Error ? `: ${err.message}` : ''}.`,
+      suggestion: `The endpoint returned a non-JSON response${body ? ` (starts with: "${body}")` : ''}. Verify it is a GraphQL endpoint.`,
       retryable: false,
     })
   }
@@ -195,7 +198,7 @@ function extractBaseUrl(endpoint: string): string {
     const url = new URL(endpoint)
     return url.origin
   } catch {
-    return endpoint
+    return ''
   }
 }
 

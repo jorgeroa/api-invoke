@@ -54,12 +54,19 @@ describe('throwOnGraphQLErrors', () => {
   })
 
   it('throws with ApiInvokeError properties', () => {
-    const result = makeResult({ data: null, errors: [{ message: 'Bad' }] })
+    const body = { data: null, errors: [{ message: 'Bad' }] }
+    const result = makeResult(body)
     try {
       throwOnGraphQLErrors(result)
       expect.fail('Should have thrown')
     } catch (e) {
-      expect(e).toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.GRAPHQL, retryable: false })
+      expect(e).toMatchObject({
+        name: API_INVOKE_ERROR_NAME,
+        kind: ErrorKind.GRAPHQL,
+        retryable: false,
+        status: 200,
+        responseBody: body,
+      })
     }
   })
 

@@ -175,6 +175,24 @@ export function parseError(url: string, expectedType = 'JSON'): ApiInvokeError {
 }
 
 /**
+ * Create a GraphQL error for when the response contains errors and no data (total failure).
+ * @param messages - Joined error messages from the GraphQL response
+ * @param status - HTTP status code (usually 200 for GraphQL)
+ * @param responseBody - Full GraphQL response body
+ * @returns An `ApiInvokeError` with `kind: 'graphql'` and `retryable: false`
+ */
+export function graphqlError(messages: string, status?: number, responseBody?: unknown): ApiInvokeError {
+  return new ApiInvokeError({
+    kind: ErrorKind.GRAPHQL,
+    message: `GraphQL errors: ${messages}`,
+    suggestion: 'Check the query and variables for correctness.',
+    retryable: false,
+    status,
+    responseBody,
+  })
+}
+
+/**
  * Create a timeout error for when a request exceeds the configured `timeoutMs`.
  * @param url - The URL that timed out
  * @returns An `ApiInvokeError` with `kind: 'timeout'` and `retryable: true`

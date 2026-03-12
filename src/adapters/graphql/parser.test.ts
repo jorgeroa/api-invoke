@@ -224,6 +224,23 @@ describe('parseGraphQLSchema', () => {
     expect((body as { query: string }).query).toContain('query user')
   })
 
+  it('buildBody filters out undeclared args from variables', async () => {
+    const input = makeSchema({
+      queryFields: [makeField('user', objectRef('User'), [
+        { name: 'id', type: nonNull(scalar('ID')) },
+      ])],
+      extraTypes: [makeObjectType('User', [
+        makeField('id', scalar('ID')),
+        makeField('name', scalar('String')),
+      ])],
+    })
+
+    const api = await parseGraphQLSchema(input)
+    const op = api.operations[0]
+    const body = op.buildBody!({ id: '123', extraKey: 'should-be-excluded', body: 'also-excluded' }) as { variables: Record<string, unknown> }
+    expect(body.variables).toEqual({ id: '123' })
+  })
+
   it('fetches introspection from URL', async () => {
     const schemaData = makeSchema({
       queryFields: [makeField('ping', scalar('String'))],
