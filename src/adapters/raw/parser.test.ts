@@ -15,7 +15,9 @@ describe('parseRawUrl', () => {
     const params = api.operations[0].parameters
     expect(params).toHaveLength(2)
     expect(params[0].name).toBe('page')
+    expect(params[0].schema.type).toBe('string')
     expect(params[0].schema.default).toBe('1')
+    expect(params[0].schema.items).toBeUndefined()
     expect(params[1].name).toBe('limit')
     expect(params[1].schema.default).toBe('10')
   })
@@ -102,7 +104,7 @@ describe('parseRawUrl', () => {
   it('formats array description as comma-separated defaults', () => {
     const api = parseRawUrl('https://example.com/search?tags=a&tags=b&tags=c')
     const tags = api.operations[0].parameters.find(p => p.name === 'tags')!
-    expect(tags.description).toBe('Default: a, b, c')
+    expect(tags.description).toBe('Default: ["a","b","c"]')
   })
 
   it('uses hostname as title', () => {

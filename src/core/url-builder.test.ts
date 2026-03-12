@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildUrl, deriveBaseUrl, extractCookieParams } from './url-builder'
 import type { Operation } from './types'
 import { HttpMethod, ParamLocation } from './types'
+import { parseRawUrl } from '../adapters/raw/parser'
 
 describe('buildUrl', () => {
   const baseOp: Operation = {
@@ -154,6 +155,12 @@ describe('array/object query param serialization', () => {
     }
     const url = buildUrl('https://api.example.com', op, {})
     expect(url).toContain('tags=a%2Cb%2Cc')
+  })
+
+  it('round-trips repeated keys as comma-separated (lossy)', () => {
+    const api = parseRawUrl('https://example.com/search?tags=a&tags=b')
+    const url = buildUrl(api.baseUrl, api.operations[0], {})
+    expect(url).toContain('tags=a%2Cb')
   })
 })
 

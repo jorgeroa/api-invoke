@@ -182,6 +182,7 @@ function parseParameter(
       minimum: 'minimum' in p ? p.minimum : undefined,
       maximum: 'maximum' in p ? p.maximum : undefined,
       maxLength: 'maxLength' in p ? p.maxLength : undefined,
+      // TODO: extract p.items for array parameters (ParameterSchema.items)
     }
   }
 

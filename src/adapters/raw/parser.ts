@@ -38,6 +38,7 @@ export function parseRawUrl(url: string): ParsedAPI {
  * Parse multiple raw URL endpoints into a single {@link ParsedAPI}.
  * All endpoints must share the same origin. Query parameters become configurable operation parameters.
  * Repeated keys and bracket notation (e.g. `?ids[]=1&ids[]=2`) produce array-typed parameters.
+ * Nested brackets (e.g. `[][]`) are flattened to a 1D array. Indexed brackets (e.g. `[0]`, `[1]`) are not recognized.
  *
  * @param endpoints - Array of raw endpoint definitions
  * @returns A ParsedAPI with one operation per endpoint
@@ -80,7 +81,7 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
     for (const [rawKey, value] of parsed.searchParams.entries()) {
       const name = rawKey.replace(/(\[\])+$/, '')
       const isBracket = name !== rawKey
-      if (!name) continue
+      if (!name) continue // bare bracket key (e.g. "[]") has no usable parameter name
       const existing = entries.get(name)
       if (existing) {
         existing.values.push(value)
@@ -91,7 +92,7 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
     }
 
     // Build parameters — repeated keys or bracket notation become arrays.
-    // Note: url-builder serializes arrays as comma-separated (e.g. tags=a,b), not repeated keys.
+    // Note: url-builder serializes arrays as comma-separated (e.g. tags=a%2Cb), not repeated keys.
     for (const [name, { values, isBracket }] of entries) {
       const isArray = values.length > 1 || isBracket
       parameters.push({
@@ -99,7 +100,7 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
         in: ParamLocation.QUERY,
         required: false,
         description: isArray
-          ? `Default: ${values.join(', ')}`
+          ? `Default: ${JSON.stringify(values)}`
           : `Default: ${values[0]}`,
         schema: isArray
           ? { type: 'array', default: values, items: { type: 'string' } }
