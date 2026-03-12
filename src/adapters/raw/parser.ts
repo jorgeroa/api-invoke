@@ -73,14 +73,33 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
 
     const parameters: Parameter[] = []
 
-    // Extract query params as configurable parameters
-    for (const [key, value] of parsed.searchParams.entries()) {
+    // Collect query entries, normalizing bracket notation (e.g. tags[] → tags)
+    const entries = new Map<string, { values: string[]; isBracket: boolean }>()
+    for (const [rawKey, value] of parsed.searchParams.entries()) {
+      const isBracket = rawKey.endsWith('[]')
+      const name = isBracket ? rawKey.slice(0, -2) : rawKey
+      const existing = entries.get(name)
+      if (existing) {
+        existing.values.push(value)
+        existing.isBracket = existing.isBracket || isBracket
+      } else {
+        entries.set(name, { values: [value], isBracket })
+      }
+    }
+
+    // Build parameters — repeated keys or bracket notation become arrays
+    for (const [name, { values, isBracket }] of entries) {
+      const isArray = values.length > 1 || isBracket
       parameters.push({
-        name: key,
+        name,
         in: ParamLocation.QUERY,
         required: false,
-        description: `Default: ${value}`,
-        schema: { type: 'string', default: value },
+        description: isArray
+          ? `Default: ${values.join(', ')}`
+          : `Default: ${values[0]}`,
+        schema: isArray
+          ? { type: 'array', default: values, items: { type: 'string' } }
+          : { type: 'string', default: values[0] },
       })
     }
 

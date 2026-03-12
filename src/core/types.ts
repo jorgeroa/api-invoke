@@ -153,6 +153,8 @@ export interface ParameterSchema {
   maximum?: number
   /** Maximum length for string parameters. */
   maxLength?: number
+  /** Element schema for array parameters. */
+  items?: ParameterSchema
 }
 
 /** Well-known MIME content types. */

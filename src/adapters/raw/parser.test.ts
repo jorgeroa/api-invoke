@@ -20,6 +20,44 @@ describe('parseRawUrl', () => {
     expect(params[1].schema.default).toBe('10')
   })
 
+  it('merges repeated query parameters into array', () => {
+    const api = parseRawUrl('https://example.com/search?tags=a&tags=b&tags=c')
+    const op = api.operations[0]
+    const tagsParam = op.parameters.find(p => p.name === 'tags')
+    expect(tagsParam).toBeDefined()
+    expect(tagsParam!.schema.type).toBe('array')
+    expect(tagsParam!.schema.default).toEqual(['a', 'b', 'c'])
+    expect(tagsParam!.schema.items).toEqual({ type: 'string' })
+  })
+
+  it('strips bracket notation and creates array parameter', () => {
+    const api = parseRawUrl('https://example.com/search?ids[]=1&ids[]=2')
+    const op = api.operations[0]
+    const idsParam = op.parameters.find(p => p.name === 'ids')
+    expect(idsParam).toBeDefined()
+    expect(idsParam!.schema.type).toBe('array')
+    expect(idsParam!.schema.default).toEqual(['1', '2'])
+    expect(op.parameters.find(p => p.name === 'ids[]')).toBeUndefined()
+  })
+
+  it('treats single bracket notation as array', () => {
+    const api = parseRawUrl('https://example.com/search?tag[]=solo')
+    const op = api.operations[0]
+    const tagParam = op.parameters.find(p => p.name === 'tag')
+    expect(tagParam!.schema.type).toBe('array')
+    expect(tagParam!.schema.default).toEqual(['solo'])
+  })
+
+  it('handles mixed repeated and single params', () => {
+    const api = parseRawUrl('https://example.com?tags=a&tags=b&limit=10')
+    const op = api.operations[0]
+    expect(op.parameters).toHaveLength(2)
+    const tags = op.parameters.find(p => p.name === 'tags')!
+    const limit = op.parameters.find(p => p.name === 'limit')!
+    expect(tags.schema.type).toBe('array')
+    expect(limit.schema.type).toBe('string')
+  })
+
   it('uses hostname as title', () => {
     const api = parseRawUrl('https://api.example.com/data')
     expect(api.title).toBe('api.example.com')
