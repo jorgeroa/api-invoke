@@ -95,7 +95,7 @@ export interface OAuth2TokenResult {
  * @param refreshToken - The refresh token to exchange
  * @param options - Optional client credentials, scopes, and custom fetch
  * @returns The new token set
- * @throws {Error} If the refresh request fails
+ * @throws {Error} If the response is not OK, the body is not valid JSON, or the response is missing the required `access_token` field
  */
 export async function refreshOAuth2Token(
   tokenUrl: string,
@@ -152,7 +152,7 @@ export async function refreshOAuth2Token(
 
   return {
     accessToken,
-    refreshToken: typeof data.refresh_token === 'string' ? data.refresh_token : undefined,
+    refreshToken: typeof data.refresh_token === 'string' && data.refresh_token ? data.refresh_token : undefined,
     expiresIn: typeof data.expires_in === 'number' ? data.expires_in : undefined,
   }
 }

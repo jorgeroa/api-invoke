@@ -83,6 +83,26 @@ describe('withOAuthRefresh', () => {
     })
   })
 
+  it('supports async onTokenRefresh callbacks', async () => {
+    const persisted: string[] = []
+    const baseFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(mockTokenResponse('new_at'))
+      .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+      onTokenRefresh: async (tokens) => {
+        await new Promise(r => setTimeout(r, 10))
+        persisted.push(tokens.accessToken)
+      },
+    }, baseFetch)
+
+    await fetch('https://api.example.com/data')
+    expect(persisted).toEqual(['new_at'])
+  })
+
   it('returns original 401 when refresh fails', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const baseFetch = vi.fn()
@@ -152,8 +172,9 @@ describe('withOAuthRefresh', () => {
     expect(tokenBody).toContain('scope=read+write')
   })
 
-  it('deduplicates concurrent refresh attempts', async () => {
+  it('deduplicates concurrent refresh attempts and calls onTokenRefresh once', async () => {
     let refreshCallCount = 0
+    const onTokenRefresh = vi.fn()
     const baseFetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url === 'https://auth.example.com/token') {
         refreshCallCount++
@@ -169,6 +190,7 @@ describe('withOAuthRefresh', () => {
     const fetch = withOAuthRefresh({
       tokenUrl: 'https://auth.example.com/token',
       refreshToken: 'rt',
+      onTokenRefresh,
     }, baseFetch)
 
     // Fire two requests concurrently — both get 401
@@ -181,6 +203,8 @@ describe('withOAuthRefresh', () => {
     expect(r2.status).toBe(200)
     // Only one refresh should have occurred
     expect(refreshCallCount).toBe(1)
+    // Callback should fire exactly once
+    expect(onTokenRefresh).toHaveBeenCalledTimes(1)
   })
 
   it('retries with correct headers when init is undefined', async () => {
@@ -244,6 +268,54 @@ describe('withOAuthRefresh', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('[api-invoke] onTokenRefresh callback threw'),
       'DB write failed',
+    )
+    warnSpy.mockRestore()
+  })
+
+  it('replaces existing authorization header regardless of casing', async () => {
+    const baseFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(mockTokenResponse('new_at'))
+      .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+    }, baseFetch)
+
+    // Use Headers instance with lowercase key (as Headers normalizes)
+    const headers = new Headers({ authorization: 'Bearer old_token' })
+    await fetch('https://api.example.com/data', { headers })
+
+    const retryCall = baseFetch.mock.calls[2]
+    const retryHeaders = retryCall[1].headers as Record<string, string>
+    // Should have exactly one Authorization entry, not both 'authorization' and 'Authorization'
+    const authKeys = Object.keys(retryHeaders).filter(k => k.toLowerCase() === 'authorization')
+    expect(authKeys).toHaveLength(1)
+    expect(retryHeaders[authKeys[0]]).toBe('Bearer new_at')
+  })
+
+  it('returns original 401 for ReadableStream bodies', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const baseFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+    }, baseFetch)
+
+    const stream = new ReadableStream()
+    const response = await fetch('https://api.example.com/upload', {
+      method: 'POST',
+      body: stream,
+    })
+
+    expect(response.status).toBe(401)
+    // Should not have attempted refresh
+    expect(baseFetch).toHaveBeenCalledTimes(1)
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('ReadableStream'),
     )
     warnSpy.mockRestore()
   })

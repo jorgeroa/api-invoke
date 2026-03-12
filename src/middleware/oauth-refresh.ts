@@ -2,8 +2,8 @@
  * OAuth2 token refresh fetch wrapper.
  * Intercepts 401 responses, refreshes the token, and retries the request.
  *
- * Note: Requests with `ReadableStream` bodies cannot be retried because the stream
- * is consumed on the first attempt.
+ * Note: Requests with `ReadableStream` bodies cannot be retried — if a stream body
+ * is detected after a 401, the original response is returned with a warning.
  */
 
 import { refreshOAuth2Token } from '../core/auth'
@@ -20,14 +20,14 @@ export interface OAuthRefreshOptions {
   clientSecret?: string
   /** OAuth2 scopes to request. */
   scopes?: string[]
-  /** Called after a successful token refresh. Use this to persist the new tokens. */
-  onTokenRefresh?: (tokens: OAuth2TokenResult) => void
+  /** Called after a successful token refresh. Use this to persist the new tokens. May be async. */
+  onTokenRefresh?: (tokens: OAuth2TokenResult) => void | Promise<void>
 }
 
 /**
  * Create a fetch wrapper that auto-refreshes OAuth2 tokens on 401 responses.
  * On a 401, exchanges the refresh token for a new access token and retries the original request.
- * Concurrent 401s are deduplicated — only one refresh is performed at a time.
+ * Concurrent 401s are deduplicated — only one refresh and one `onTokenRefresh` callback fire per refresh cycle.
  *
  * @param options - Refresh configuration (token URL, refresh token, client credentials)
  * @param baseFetch - Base fetch function to wrap. Defaults to `globalThis.fetch`.
@@ -61,7 +61,15 @@ export function withOAuthRefresh(
 
     if (response.status !== 401) return response
 
-    // Deduplicate concurrent refresh attempts
+    // Cannot retry requests with stream bodies — the stream was consumed on the first attempt
+    if (init?.body instanceof ReadableStream) {
+      console.warn(
+        '[api-invoke] Cannot retry request with ReadableStream body after 401 — the stream was consumed. Use a string or Blob body for OAuth2-protected requests.',
+      )
+      return response
+    }
+
+    // Deduplicate concurrent refresh attempts — refresh + callback fire exactly once per cycle
     let tokens: OAuth2TokenResult
     try {
       if (!refreshPromise) {
@@ -70,6 +78,21 @@ export function withOAuthRefresh(
           clientSecret: options.clientSecret,
           scopes: options.scopes,
           fetch: fetchFn,
+        }).then(async (result) => {
+          if (result.refreshToken) currentRefreshToken = result.refreshToken
+
+          if (options.onTokenRefresh) {
+            try {
+              await options.onTokenRefresh(result)
+            } catch (callbackError) {
+              console.warn(
+                '[api-invoke] onTokenRefresh callback threw (token was refreshed successfully):',
+                callbackError instanceof Error ? callbackError.message : callbackError,
+              )
+            }
+          }
+
+          return result
         }).finally(() => { refreshPromise = null })
       }
       tokens = await refreshPromise
@@ -82,27 +105,16 @@ export function withOAuthRefresh(
       return response
     }
 
-    if (tokens.refreshToken) currentRefreshToken = tokens.refreshToken
-
-    if (options.onTokenRefresh) {
-      try {
-        options.onTokenRefresh(tokens)
-      } catch (callbackError) {
-        console.warn(
-          '[api-invoke] onTokenRefresh callback threw (token was refreshed successfully):',
-          callbackError instanceof Error ? callbackError.message : callbackError,
-        )
-      }
-    }
-
-    // Retry original request with new token, preserving original header casing
-    const retryInit = { ...init }
+    // Retry original request with updated Authorization header
     const existingHeaders: Record<string, string> =
-      typeof init?.headers === 'object' && !(init.headers instanceof Headers)
+      typeof init?.headers === 'object' && !Array.isArray(init.headers) && !(init.headers instanceof Headers)
         ? { ...(init.headers as Record<string, string>) }
         : Object.fromEntries(new Headers(init?.headers).entries())
+    // Remove any existing authorization header (case-insensitive) before setting the new one
+    for (const key of Object.keys(existingHeaders)) {
+      if (key.toLowerCase() === 'authorization') delete existingHeaders[key]
+    }
     existingHeaders['Authorization'] = `Bearer ${tokens.accessToken}`
-    retryInit.headers = existingHeaders
-    return fetchFn(input, retryInit)
+    return fetchFn(input, { ...init, headers: existingHeaders })
   }
 }

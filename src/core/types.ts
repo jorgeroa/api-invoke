@@ -241,7 +241,7 @@ export type Auth =
   | { type: typeof AuthType.BEARER; token: string }
   | { type: typeof AuthType.BASIC; username: string; password: string }
   | { type: typeof AuthType.API_KEY; location: typeof ParamLocation.HEADER | typeof ParamLocation.QUERY; name: string; value: string }
-  | { type: typeof AuthType.OAUTH2; accessToken: string; refreshToken?: string; tokenUrl?: string; clientId?: string; clientSecret?: string }
+  | { type: typeof AuthType.OAUTH2; accessToken: string }
   | { type: typeof AuthType.COOKIE; name: string; value: string }
 
 // === Execution ===
