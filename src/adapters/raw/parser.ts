@@ -24,6 +24,7 @@ export interface RawEndpoint {
 /**
  * Parse a raw URL into a {@link ParsedAPI} with a single operation.
  * Query parameters from the URL become configurable operation parameters.
+ * Repeated keys (e.g. `?tags=a&tags=b`) and bracket notation (e.g. `?ids[]=1&ids[]=2`) produce array-typed parameters.
  *
  * @param url - Absolute URL (e.g. 'https://api.example.com/users?page=1')
  * @returns A ParsedAPI with a single operation (defaults to GET)
@@ -36,6 +37,7 @@ export function parseRawUrl(url: string): ParsedAPI {
 /**
  * Parse multiple raw URL endpoints into a single {@link ParsedAPI}.
  * All endpoints must share the same origin. Query parameters become configurable operation parameters.
+ * Repeated keys and bracket notation (e.g. `?ids[]=1&ids[]=2`) produce array-typed parameters.
  *
  * @param endpoints - Array of raw endpoint definitions
  * @returns A ParsedAPI with one operation per endpoint
@@ -73,11 +75,12 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
 
     const parameters: Parameter[] = []
 
-    // Collect query entries, normalizing bracket notation (e.g. tags[] → tags)
+    // Group query entries by parameter name, merging repeated keys and normalizing bracket notation (e.g. tags[] → tags)
     const entries = new Map<string, { values: string[]; isBracket: boolean }>()
     for (const [rawKey, value] of parsed.searchParams.entries()) {
-      const isBracket = rawKey.endsWith('[]')
-      const name = isBracket ? rawKey.slice(0, -2) : rawKey
+      const name = rawKey.replace(/(\[\])+$/, '')
+      const isBracket = name !== rawKey
+      if (!name) continue
       const existing = entries.get(name)
       if (existing) {
         existing.values.push(value)
@@ -87,7 +90,8 @@ export function parseRawUrls(endpoints: RawEndpoint[]): ParsedAPI {
       }
     }
 
-    // Build parameters — repeated keys or bracket notation become arrays
+    // Build parameters — repeated keys or bracket notation become arrays.
+    // Note: url-builder serializes arrays as comma-separated (e.g. tags=a,b), not repeated keys.
     for (const [name, { values, isBracket }] of entries) {
       const isArray = values.length > 1 || isBracket
       parameters.push({

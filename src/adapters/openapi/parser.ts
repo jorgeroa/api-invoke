@@ -169,6 +169,7 @@ function parseParameter(
       minimum: s?.minimum,
       maximum: s?.maximum,
       maxLength: s?.maxLength,
+      // TODO: extract s?.items for array parameters (ParameterSchema.items)
     }
   } else {
     const p = param as OpenAPIV2.GeneralParameterObject

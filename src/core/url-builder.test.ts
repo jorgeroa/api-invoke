@@ -141,6 +141,20 @@ describe('array/object query param serialization', () => {
     const url = buildUrl('https://api.example.com', op, { q: 'hello' })
     expect(url).toBe('https://api.example.com/items?q=hello')
   })
+
+  it('serializes array defaults from raw parser as comma-separated', () => {
+    const op: Operation = {
+      id: 'test',
+      path: '/search',
+      method: HttpMethod.GET,
+      parameters: [
+        { name: 'tags', in: ParamLocation.QUERY, required: false, description: '', schema: { type: 'array', default: ['a', 'b', 'c'], items: { type: 'string' } } },
+      ],
+      tags: [],
+    }
+    const url = buildUrl('https://api.example.com', op, {})
+    expect(url).toContain('tags=a%2Cb%2Cc')
+  })
 })
 
 describe('deriveBaseUrl', () => {

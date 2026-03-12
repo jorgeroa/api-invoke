@@ -37,6 +37,7 @@ describe('parseRawUrl', () => {
     expect(idsParam).toBeDefined()
     expect(idsParam!.schema.type).toBe('array')
     expect(idsParam!.schema.default).toEqual(['1', '2'])
+    expect(idsParam!.schema.items).toEqual({ type: 'string' })
     expect(op.parameters.find(p => p.name === 'ids[]')).toBeUndefined()
   })
 
@@ -46,6 +47,7 @@ describe('parseRawUrl', () => {
     const tagParam = op.parameters.find(p => p.name === 'tag')
     expect(tagParam!.schema.type).toBe('array')
     expect(tagParam!.schema.default).toEqual(['solo'])
+    expect(tagParam!.schema.items).toEqual({ type: 'string' })
   })
 
   it('handles mixed repeated and single params', () => {
@@ -56,6 +58,51 @@ describe('parseRawUrl', () => {
     const limit = op.parameters.find(p => p.name === 'limit')!
     expect(tags.schema.type).toBe('array')
     expect(limit.schema.type).toBe('string')
+  })
+
+  it('skips bare bracket keys', () => {
+    const api = parseRawUrl('https://example.com/search?[]=1&[]=2&name=ok')
+    const op = api.operations[0]
+    expect(op.parameters).toHaveLength(1)
+    expect(op.parameters[0].name).toBe('name')
+  })
+
+  it('merges mixed bracket and non-bracket forms', () => {
+    const api = parseRawUrl('https://example.com/search?tags=a&tags[]=b')
+    const op = api.operations[0]
+    expect(op.parameters).toHaveLength(1)
+    const tags = op.parameters[0]
+    expect(tags.name).toBe('tags')
+    expect(tags.schema.type).toBe('array')
+    expect(tags.schema.default).toEqual(['a', 'b'])
+  })
+
+  it('strips nested bracket notation', () => {
+    const api = parseRawUrl('https://example.com/search?matrix[][]=1&matrix[][]=2')
+    const op = api.operations[0]
+    const param = op.parameters.find(p => p.name === 'matrix')
+    expect(param).toBeDefined()
+    expect(param!.schema.type).toBe('array')
+    expect(op.parameters.find(p => p.name === 'matrix[]')).toBeUndefined()
+    expect(op.parameters.find(p => p.name === 'matrix[][]')).toBeUndefined()
+  })
+
+  it('preserves URL-decoded values in array defaults', () => {
+    const api = parseRawUrl('https://example.com/search?tags=hello%20world&tags=foo%26bar')
+    const tags = api.operations[0].parameters.find(p => p.name === 'tags')!
+    expect(tags.schema.default).toEqual(['hello world', 'foo&bar'])
+  })
+
+  it('preserves empty string values in arrays', () => {
+    const api = parseRawUrl('https://example.com/search?tags=&tags=b')
+    const tags = api.operations[0].parameters.find(p => p.name === 'tags')!
+    expect(tags.schema.default).toEqual(['', 'b'])
+  })
+
+  it('formats array description as comma-separated defaults', () => {
+    const api = parseRawUrl('https://example.com/search?tags=a&tags=b&tags=c')
+    const tags = api.operations[0].parameters.find(p => p.name === 'tags')!
+    expect(tags.description).toBe('Default: a, b, c')
   })
 
   it('uses hostname as title', () => {
