@@ -74,3 +74,9 @@ export { parseRawUrl, parseRawUrls } from './adapters/raw/parser'
 export type { RawEndpoint } from './adapters/raw/parser'
 export { defineAPI, APIBuilder } from './adapters/manual/builder'
 export type { EndpointOptions, ParamDef, BodyDef, PropertyDef } from './adapters/manual/builder'
+
+// GraphQL adapter
+export { parseGraphQLSchema } from './adapters/graphql/parser'
+export type { GraphQLParseOptions } from './adapters/graphql/parser'
+export { hasGraphQLErrors, getGraphQLErrors, throwOnGraphQLErrors } from './adapters/graphql/errors'
+export type { GraphQLError } from './adapters/graphql/errors'

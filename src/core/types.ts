@@ -46,6 +46,7 @@ export const SpecFormat = {
   OPENAPI_2: 'openapi-2',
   RAW_URL: 'raw-url',
   MANUAL: 'manual',
+  GRAPHQL: 'graphql',
 } as const
 export type SpecFormat = (typeof SpecFormat)[keyof typeof SpecFormat]
 
@@ -108,6 +109,12 @@ export interface Operation {
   responseContentType?: ContentType | string
   /** Tags for grouping operations (e.g. ['users', 'admin']). */
   tags: string[]
+  /**
+   * Custom body builder for protocol adapters (e.g., GraphQL).
+   * When set, the executor calls this instead of flat-arg assembly to construct the request body.
+   * Receives the full args map and returns the body data to be serialized.
+   */
+  buildBody?: (args: Record<string, unknown>) => unknown
 }
 
 /**

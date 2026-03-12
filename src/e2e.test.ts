@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest'
 import { createClient } from './client'
 import { withRetry, logging, corsProxy } from './middleware'
+import { hasGraphQLErrors, getGraphQLErrors } from './adapters/graphql/errors'
 import type { Auth, Enricher } from './core/types'
 import { AuthType, ContentType, HeaderName, HttpMethod, ParamLocation, SpecFormat } from './core/types'
 
@@ -511,6 +512,82 @@ describe('e2e: spec as object', () => {
 
     const result = await client.execute('get_get')
     expect(result.status).toBe(200)
+  }, TIMEOUT)
+})
+
+// ── GraphQL ──
+
+const GRAPHQL_ENDPOINT = 'https://countries.trevorblades.com/graphql'
+
+describe('e2e: GraphQL introspection & parsing', () => {
+  it('introspects and parses a GraphQL endpoint via createClient', async () => {
+    const client = await createClient(GRAPHQL_ENDPOINT)
+
+    expect(client.api.specFormat).toBe(SpecFormat.GRAPHQL)
+    expect(client.api.operations.length).toBeGreaterThan(0)
+    expect(client.api.baseUrl).toContain('countries.trevorblades.com')
+
+    for (const op of client.api.operations) {
+      expect(op.id).toBeTruthy()
+      expect(op.method).toBe(HttpMethod.POST)
+      expect(op.path).toBe('/graphql')
+      expect(op.tags.length).toBeGreaterThan(0)
+    }
+  }, TIMEOUT)
+
+  it('discovers expected query fields (countries, continents, languages)', async () => {
+    const client = await createClient(GRAPHQL_ENDPOINT)
+    const ids = client.api.operations.map(o => o.id)
+
+    expect(ids).toContain('countries')
+    expect(ids).toContain('continents')
+    expect(ids).toContain('languages')
+  }, TIMEOUT)
+
+  it('query operations have buildBody hook', async () => {
+    const client = await createClient(GRAPHQL_ENDPOINT)
+    const queryOps = client.api.operations.filter(o => o.tags.includes('query'))
+
+    expect(queryOps.length).toBeGreaterThan(0)
+    for (const op of queryOps) {
+      expect(op.buildBody).toBeDefined()
+    }
+  }, TIMEOUT)
+})
+
+describe('e2e: GraphQL execution', () => {
+  it('executes a query without arguments (continents)', async () => {
+    const client = await createClient(GRAPHQL_ENDPOINT)
+    const result = await client.execute('continents')
+
+    expect(result.status).toBe(200)
+    const data = result.data as Record<string, any>
+    expect(data.data.continents).toBeDefined()
+    expect(data.data.continents.length).toBeGreaterThan(0)
+  }, TIMEOUT)
+
+  it('executes a query with arguments (country by code)', async () => {
+    const client = await createClient(GRAPHQL_ENDPOINT)
+    const result = await client.execute('country', { code: 'BR' })
+
+    expect(result.status).toBe(200)
+    const data = result.data as Record<string, any>
+    expect(data.data.country).toBeDefined()
+    expect(data.data.country.name).toBe('Brazil')
+  }, TIMEOUT)
+
+  it('returns GraphQL-level errors in response body (not HTTP error)', async () => {
+    const client = await createClient(GRAPHQL_ENDPOINT)
+
+    // Execute with a deliberately malformed query by overriding body
+    const result = await client.execute('country', {
+      body: { query: '{ invalid_field_that_does_not_exist }' },
+    })
+
+    // GraphQL returns 200 even on errors
+    expect(result.status).toBe(200)
+    expect(hasGraphQLErrors(result)).toBe(true)
+    expect(getGraphQLErrors(result).length).toBeGreaterThan(0)
   }, TIMEOUT)
 })
 

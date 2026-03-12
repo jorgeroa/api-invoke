@@ -776,6 +776,49 @@ describe('buildRequest', () => {
     const req = buildRequest(baseUrl, op, { session: 'abc123' })
     expect(req.headers[HeaderName.COOKIE]).toBe('session=abc123')
   })
+
+  it('uses buildBody hook when set on operation', () => {
+    const op: Operation = {
+      id: 'graphqlQuery',
+      path: '/graphql',
+      method: HttpMethod.POST,
+      parameters: [],
+      requestBody: { required: true, contentType: ContentType.JSON, schema: { type: 'object', raw: {} } },
+      tags: [],
+      buildBody: (args) => ({ query: 'query { user }', variables: args }),
+    }
+    const req = buildRequest(baseUrl, op, { id: '123' })
+    expect(JSON.parse(req.body as string)).toEqual({ query: 'query { user }', variables: { id: '123' } })
+  })
+
+  it('explicit body arg overrides buildBody hook', () => {
+    const op: Operation = {
+      id: 'graphqlQuery',
+      path: '/graphql',
+      method: HttpMethod.POST,
+      parameters: [],
+      requestBody: { required: true, contentType: ContentType.JSON, schema: { type: 'object', raw: {} } },
+      tags: [],
+      buildBody: () => ({ query: 'should not be used' }),
+    }
+    const req = buildRequest(baseUrl, op, { body: { custom: true } })
+    expect(JSON.parse(req.body as string)).toEqual({ custom: true })
+  })
+
+  it('skips buildBody for GET/HEAD/OPTIONS methods', () => {
+    const buildBody = vi.fn()
+    const op: Operation = {
+      id: 'test',
+      path: '/data',
+      method: HttpMethod.GET,
+      parameters: [],
+      tags: [],
+      buildBody,
+    }
+    const req = buildRequest(baseUrl, op, { id: '123' })
+    expect(buildBody).not.toHaveBeenCalled()
+    expect(req.body).toBeUndefined()
+  })
 })
 
 describe('middleware onError isolation', () => {

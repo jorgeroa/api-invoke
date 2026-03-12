@@ -103,9 +103,12 @@ export function buildRequest(
     headers[HeaderName.COOKIE] = cookieHeader
   }
 
-  // Assemble body from flat args if no explicit 'body' key, operation has a requestBody, and method allows a body
+  // Assemble body: buildBody hook (protocol adapters) > explicit 'body' arg > flat-arg assembly
   let bodyData = args['body']
-  if (!bodyData && operation.requestBody && method !== HttpMethod.GET && method !== HttpMethod.HEAD && method !== HttpMethod.OPTIONS) {
+  const allowsBody = method !== HttpMethod.GET && method !== HttpMethod.HEAD && method !== HttpMethod.OPTIONS
+  if (!bodyData && operation.buildBody && allowsBody) {
+    bodyData = operation.buildBody(args)
+  } else if (!bodyData && operation.requestBody && allowsBody) {
     const bodyProps = operation.requestBody.schema.properties
     if (bodyProps) {
       const assembled: Record<string, unknown> = {}
@@ -122,7 +125,7 @@ export function buildRequest(
 
   // Serialize body based on content type
   let body: string | FormData | undefined
-  if (bodyData && method !== HttpMethod.GET && method !== HttpMethod.HEAD && method !== HttpMethod.OPTIONS) {
+  if (bodyData && allowsBody) {
     const contentType = operation.requestBody?.contentType ?? ContentType.JSON
 
     if (contentType === ContentType.FORM_URLENCODED) {

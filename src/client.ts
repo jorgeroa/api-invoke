@@ -9,6 +9,23 @@ import { parseOpenAPISpec } from './adapters/openapi/parser'
 import { parseRawUrl } from './adapters/raw/parser'
 
 /**
+ * Heuristic: detect if a URL points to a GraphQL endpoint by URL pattern.
+ */
+function isGraphQLUrl(url: string): boolean {
+  const lower = url.toLowerCase()
+  return lower.endsWith('/graphql') || lower.includes('/graphql?')
+}
+
+/**
+ * Heuristic: detect if a parsed JSON object looks like a GraphQL introspection result.
+ */
+function isGraphQLIntrospection(obj: Record<string, unknown>): boolean {
+  if (obj.__schema !== undefined) return true
+  if (typeof obj.data === 'object' && obj.data !== null && '__schema' in (obj.data as object)) return true
+  return false
+}
+
+/**
  * Heuristic: detect if a URL points to an OpenAPI/Swagger spec by URL pattern.
  */
 function isSpecUrl(url: string): boolean {
@@ -195,14 +212,16 @@ export class ApiInvokeClient {
 }
 
 /**
- * Create a client from an OpenAPI spec URL, spec object, or raw API URL.
+ * Create a client from an OpenAPI spec URL, GraphQL endpoint, spec object, or raw API URL.
  *
  * Auto-detection logic:
  * - OpenAPI spec URL (e.g. ends with `/openapi.json`) → parsed spec with all operations
+ * - GraphQL endpoint URL (ends with `/graphql`) → introspection query, one operation per field
  * - Raw URL → attempts content-based spec detection, falls back to single-operation raw mode
- * - Spec object (parsed JSON/YAML) → parsed directly
+ * - GraphQL introspection object (`{ __schema }` or `{ data: { __schema } }`) → parsed directly
+ * - OpenAPI spec object (parsed JSON/YAML) → parsed directly
  *
- * @param input - OpenAPI spec URL, raw API URL, or pre-parsed spec object
+ * @param input - OpenAPI spec URL, GraphQL endpoint URL, raw API URL, or pre-parsed spec/introspection object
  * @param options - Client configuration (auth, middleware, fetch, enricher, timeout)
  * @returns A configured {@link ApiInvokeClient} ready to execute operations
  * @throws {Error} If the spec cannot be fetched or parsed
@@ -211,6 +230,9 @@ export class ApiInvokeClient {
  * ```ts
  * // From OpenAPI spec URL
  * const client = await createClient('https://petstore.swagger.io/v2/swagger.json')
+ *
+ * // From GraphQL endpoint
+ * const client = await createClient('https://countries.trevorblades.com/graphql')
  *
  * // From raw API URL
  * const client = await createClient('https://api.example.com/users?page=1')
@@ -228,13 +250,22 @@ export async function createClient(
   if (typeof input === 'string') {
     if (isSpecUrl(input)) {
       api = await fetchAndParseSpec(input, options)
+    } else if (isGraphQLUrl(input)) {
+      const { parseGraphQLSchema } = await import('./adapters/graphql/parser')
+      api = await parseGraphQLSchema(input, { endpoint: input, fetch: options.fetch })
     } else {
       // URL doesn't match spec patterns — try content-based detection
       api = await tryContentDetection(input, options)
     }
   } else {
-    // Spec object passed directly
-    api = await parseOpenAPISpec(input, { specUrl: options.specUrl })
+    const obj = input as Record<string, unknown>
+    if (isGraphQLIntrospection(obj)) {
+      const { parseGraphQLSchema } = await import('./adapters/graphql/parser')
+      api = await parseGraphQLSchema(input, { endpoint: options.specUrl, fetch: options.fetch })
+    } else {
+      // OpenAPI spec object passed directly
+      api = await parseOpenAPISpec(input, { specUrl: options.specUrl })
+    }
   }
 
   return finalize(api, options)

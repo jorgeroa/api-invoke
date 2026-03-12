@@ -2,7 +2,7 @@
 
 ## Overview
 
-api-invoke is a runtime API client library (TypeScript, MIT, v0.1.0). It parses OpenAPI 2/3 specs, raw URLs, or manual definitions and executes HTTP operations. No code generation — everything happens at runtime. Outputs ESM + CJS + types via tsup.
+api-invoke is a runtime API client library (TypeScript, MIT, v0.1.0). It parses OpenAPI 2/3 specs, GraphQL endpoints (via introspection), raw URLs, or manual definitions and executes HTTP operations. No code generation — everything happens at runtime. Outputs ESM + CJS + types via tsup.
 
 
 ## Git Workflow
@@ -15,7 +15,7 @@ api-invoke is a runtime API client library (TypeScript, MIT, v0.1.0). It parses 
 
 | Command | When to run | What it does |
 |---------|-------------|--------------|
-| `pnpm test` | After every change | Unit tests (vitest, 272 tests) |
+| `pnpm test` | After every change | Unit tests (vitest, 330 tests) |
 | `pnpm typecheck` | After every change | Strict TypeScript check (`tsc --noEmit`) |
 | `pnpm build` | Before committing | Production build (ESM + CJS + types) |
 | `pnpm test:e2e` | When touching execution/auth/middleware | E2e tests against real APIs (needs `.env`) |
@@ -30,7 +30,7 @@ Test configs: `vitest.config.ts` (unit, excludes e2e), `vitest.e2e.config.ts` (e
 **Central type:** `ParsedAPI` in `src/core/types.ts` — the normalized model all adapters produce and the executor consumes.
 
 ### Client (`src/client.ts`)
-`createClient()` auto-detects input type (spec URL vs raw URL vs object). `ApiInvokeClient` wraps a `ParsedAPI` with auth, middleware, and timeout.
+`createClient()` auto-detects input type (spec URL vs GraphQL endpoint vs raw URL vs object). `ApiInvokeClient` wraps a `ParsedAPI` with auth, middleware, and timeout.
 
 ### Adapters (each produces `ParsedAPI`)
 - `src/adapters/openapi/parser.ts` — OpenAPI 2.0/3.x via `@apidevtools/swagger-parser`
@@ -38,9 +38,13 @@ Test configs: `vitest.config.ts` (unit, excludes e2e), `vitest.e2e.config.ts` (e
   - `base-url.ts` — server URL extraction with variable interpolation
 - `src/adapters/raw/parser.ts` — raw URL(s) to single or multi-operation API
 - `src/adapters/manual/builder.ts` — fluent `defineAPI()` builder
+- `src/adapters/graphql/parser.ts` — GraphQL introspection → `ParsedAPI` (endpoint URL or introspection JSON)
+  - `introspection.ts` — introspection query constant + TypeScript types
+  - `query-builder.ts` — auto-generates depth-limited GraphQL query strings from introspection data
+  - `errors.ts` — `hasGraphQLErrors`, `getGraphQLErrors`, `throwOnGraphQLErrors` (GraphQL returns 200 on errors)
 
 ### Core (spec-agnostic, `src/core/`)
-- `types.ts` — all types + `as const` enum objects (`HttpMethod`, `AuthType`, `ParamLocation`, `SpecFormat`, `ContentType`, `HeaderName`)
+- `types.ts` — all types + `as const` enum objects (`HttpMethod`, `AuthType`, `ParamLocation`, `SpecFormat`, `ContentType`, `HeaderName`). `Operation.buildBody` hook allows protocol adapters (e.g., GraphQL) to customize body construction.
 - `executor.ts` — `buildRequest` (dry-run), `executeOperation`, `executeRaw`, streaming variants. Handles JSON/form-urlencoded/multipart body serialization, error classification, timeout, abort signals
 - `auth.ts` — `injectAuth` (supports `Auth | Auth[]`), `refreshOAuth2Token`, `maskAuth`
 - `auth-config.ts` — flat config → `Auth` union conversion (for CLI consumers)
@@ -56,12 +60,13 @@ Two patterns coexist (known design inconsistency):
 
 ## Design Patterns
 
-- **`as const` objects for enums** — never TypeScript `enum`. Pattern: `const Foo = {...} as const; type Foo = (typeof Foo)[keyof typeof Foo]`
+- **`as const` objects for enums** — never TypeScript `enum`. Pattern: `const Foo = {...} as const; type Foo = (typeof Foo)[keyof typeof Foo]`. Use enum constants everywhere (production and tests) — never hardcode string literals for values that have a constant. Example: use `TypeKind.SCALAR` not `'SCALAR'`, `HttpMethod.POST` not `'POST'`.
 - **Discriminated unions** — `Auth` is discriminated on `type` field. Each variant has different required fields.
 - **Adapters are independent** — each produces `ParsedAPI`, none depends on another adapter.
 - **Error classification** — all errors are `ApiInvokeError` with a `kind` from `ErrorKind`. Factory functions enforce consistency.
 - **`throwOnHttpError` dual mode** — client-side errors (CORS, network, timeout) always throw. HTTP errors (4xx/5xx) are configurable.
 - **Body assembly from flat args** — when no explicit `body` key is provided, executor assembles the body from flat args matching `requestBody.schema.properties`. Critical for MCP tool integration where tools pass flat key-value args.
+- **`buildBody` hook for protocol adapters** — `Operation.buildBody` lets adapters customize body construction (e.g., GraphQL wraps args into `{ query, variables }`). Executor checks `buildBody` before flat-arg assembly.
 - **All public APIs have JSDoc** — every exported function, class, type, and interface.
 
 ## Testing Conventions
@@ -105,6 +110,7 @@ Two patterns coexist (known design inconsistency):
 - **SSE stream is single-use** — the `stream` property can only be iterated once.
 - **Enricher runs after parsing, before client construction** — it receives and must return a `ParsedAPI`.
 - **`.planning/` is gitignored** — planning docs are local-only, won't exist in CI or fresh clones.
+- **GraphQL returns 200 on errors** — use `throwOnGraphQLErrors()` to check. Partial errors (data + errors both present) do not throw — only total failures (data is null).
 
 ## Verification
 

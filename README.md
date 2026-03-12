@@ -1,10 +1,10 @@
 # api-invoke
 
-**Call any REST API at runtime. No code generation. No build step.**
+**Call any REST or GraphQL API at runtime. No code generation. No build step.**
 
-Think of it as **reflection for REST APIs** — discover and invoke any API's operations at runtime, whether from a full spec or just a URL, no code generation required.
+Think of it as **reflection for APIs** — discover and invoke any API's operations at runtime, whether from a full spec, a GraphQL endpoint, or just a URL, no code generation required.
 
-Give it an OpenAPI spec (v2 or v3), a raw URL, or a manually defined endpoint — `api-invoke` parses it into a uniform interface, handles authentication, builds requests, classifies errors, and executes calls. Works in Node.js and the browser.
+Give it an OpenAPI spec (v2 or v3), a GraphQL endpoint, a raw URL, or a manually defined endpoint — `api-invoke` parses it into a uniform interface, handles authentication, builds requests, classifies errors, and executes calls. Works in Node.js and the browser.
 
 ```typescript
 import { createClient } from 'api-invoke'
@@ -12,6 +12,9 @@ import { createClient } from 'api-invoke'
 // Point at any OpenAPI spec → ready to call
 const github = await createClient('https://api.github.com/openapi.json')
 const stripe = await createClient('https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json')
+
+// GraphQL endpoint → introspects schema, one operation per field
+const countries = await createClient('https://countries.trevorblades.com/graphql')
 
 // Or just a URL — no spec needed
 const weather = await createClient('https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01')
@@ -30,7 +33,7 @@ But some applications need to connect to APIs they've never seen before:
 
 For these cases, you need a library that can take a spec (or just a URL), understand what operations are available, and execute them — all at runtime, with no code generation step.
 
-`api-invoke` does exactly that. It parses OpenAPI 2 (Swagger) and OpenAPI 3 specs into a spec-agnostic intermediate representation, then executes operations against the live API with built-in auth injection, error classification, middleware, and CORS handling.
+`api-invoke` does exactly that. It parses OpenAPI 2 (Swagger), OpenAPI 3, and GraphQL schemas into a spec-agnostic intermediate representation, then executes operations against the live API with built-in auth injection, error classification, middleware, and CORS handling.
 
 ## How It Compares
 
@@ -43,6 +46,7 @@ There are many ways to call APIs from JavaScript — from raw HTTP clients to fu
 | No build step required | ✅ | ✅ | ❌ | ❌ | partial&nbsp;¹ | ✅ | ✅ | ✅ |
 | Parses OpenAPI 3 | — | — | build | build | build&nbsp;¹ | ✅ | ✅ | ✅ |
 | Parses Swagger 2 | — | — | build | build | ❌ | ✅ | ❌ | ✅ |
+| GraphQL introspection | — | — | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Works without any spec | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Auto-detects input type | — | — | — | — | — | ❌ | ❌ | ✅ |
 | Operation discovery | ❌ | ❌ | static | static | static | ✅ | ✅ | ✅ |
@@ -67,7 +71,7 @@ There are many ways to call APIs from JavaScript — from raw HTTP clients to fu
   <img src="assets/positioning.svg" alt="Where api-invoke fits — quadrant chart showing spec awareness vs runtime/build-time" width="680"/>
 </p>
 
-`api-invoke` is the only tool that works across the entire top row — from raw URLs with no spec to full OpenAPI parsing, all at runtime.
+`api-invoke` is the only tool that works across the entire top row — from raw URLs with no spec to full OpenAPI and GraphQL parsing, all at runtime.
 
 ### Trade-offs
 
@@ -132,6 +136,32 @@ const tokyo = await weather.execute('query', {
 })
 ```
 
+### From a GraphQL endpoint
+
+Point at any GraphQL endpoint — `api-invoke` runs an introspection query and creates one operation per query/mutation field. Arguments become typed parameters, and queries are auto-generated with depth-limited selection sets.
+
+```typescript
+const countries = await createClient('https://countries.trevorblades.com/graphql')
+
+// Each GraphQL field becomes an operation
+console.log(countries.operations.map(op => op.id))
+// ['continents', 'continent', 'countries', 'country', 'languages', 'language']
+
+const result = await countries.execute('country', { code: 'BR' })
+console.log(result.data) // { data: { country: { name: 'Brazil', capital: 'Brasília', ... } } }
+```
+
+GraphQL returns HTTP 200 even on errors. Use the error helpers to check:
+
+```typescript
+import { hasGraphQLErrors, throwOnGraphQLErrors } from 'api-invoke'
+
+const result = await countries.execute('country', { code: 'INVALID' })
+if (hasGraphQLErrors(result)) {
+  throwOnGraphQLErrors(result) // throws ApiInvokeError with kind 'graphql'
+}
+```
+
 ### With authentication
 
 ```typescript
@@ -173,7 +203,7 @@ npm run build && npx tsx examples/01-quick-start.ts
 
 ### Tier 1: High-level client (recommended)
 
-`createClient` auto-detects the input type (spec URL, raw URL, or spec object) and returns a ready-to-use client.
+`createClient` auto-detects the input type (spec URL, GraphQL endpoint, raw URL, or spec object) and returns a ready-to-use client.
 
 ```typescript
 const client = await createClient('https://api.github.com/openapi.json')
