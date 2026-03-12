@@ -9,6 +9,7 @@
 import { refreshOAuth2Token } from '../core/auth'
 import type { OAuth2TokenResult } from '../core/auth'
 
+/** Configuration for the OAuth2 token refresh fetch wrapper ({@link withOAuthRefresh}). */
 export interface OAuthRefreshOptions {
   /** OAuth2 token endpoint URL. */
   tokenUrl: string
@@ -62,9 +63,13 @@ export function withOAuthRefresh(
     if (response.status !== 401) return response
 
     // Cannot retry requests with stream bodies — the stream was consumed on the first attempt
-    if (init?.body instanceof ReadableStream) {
+    if (
+      init?.body instanceof ReadableStream ||
+      (typeof init?.body === 'object' && init.body !== null && Symbol.asyncIterator in (init.body as object)) ||
+      (typeof init?.body === 'object' && init.body !== null && typeof (init.body as { pipe?: unknown }).pipe === 'function')
+    ) {
       console.warn(
-        '[api-invoke] Cannot retry request with ReadableStream body after 401 — the stream was consumed. Use a string or Blob body for OAuth2-protected requests.',
+        '[api-invoke] Cannot retry request with stream body after 401 — the stream was consumed. Use a string or Blob body for OAuth2-protected requests.',
       )
       return response
     }
@@ -86,8 +91,9 @@ export function withOAuthRefresh(
               await options.onTokenRefresh(result)
             } catch (callbackError) {
               console.warn(
-                '[api-invoke] onTokenRefresh callback threw (token was refreshed successfully):',
-                callbackError instanceof Error ? callbackError.message : callbackError,
+                '[api-invoke] onTokenRefresh callback threw — new tokens were NOT persisted. ' +
+                'The refreshed token is used for this request, but may be lost on restart.',
+                callbackError,
               )
             }
           }
@@ -99,17 +105,23 @@ export function withOAuthRefresh(
     } catch (error) {
       // Refresh failed — return the original 401
       console.warn(
-        '[api-invoke] OAuth2 token refresh failed, returning original 401:',
-        error instanceof Error ? error.message : error,
+        '[api-invoke] OAuth2 token refresh failed, returning original 401.',
+        error,
       )
       return response
     }
 
     // Retry original request with updated Authorization header
-    const existingHeaders: Record<string, string> =
+    // Merge headers from both the Request object (if input is a Request) and init
+    let baseHeaders: Record<string, string> = {}
+    if (input instanceof Request) {
+      input.headers.forEach((value, key) => { baseHeaders[key] = value })
+    }
+    const initHeaders: Record<string, string> =
       typeof init?.headers === 'object' && !Array.isArray(init.headers) && !(init.headers instanceof Headers)
         ? { ...(init.headers as Record<string, string>) }
         : Object.fromEntries(new Headers(init?.headers).entries())
+    const existingHeaders: Record<string, string> = { ...baseHeaders, ...initHeaders }
     // Remove any existing authorization header (case-insensitive) before setting the new one
     for (const key of Object.keys(existingHeaders)) {
       if (key.toLowerCase() === 'authorization') delete existingHeaders[key]

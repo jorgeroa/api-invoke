@@ -149,6 +149,32 @@ describe('response schema extraction', () => {
     expect(api.operations[0].responseSchemas).toBeUndefined()
   })
 
+  it('extracts response schemas from Swagger 2.0 specs', async () => {
+    const spec = {
+      swagger: '2.0',
+      info: { title: 'Test', version: '1.0.0' },
+      host: 'api.example.com',
+      basePath: '/v1',
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            parameters: [{ in: 'body', name: 'body', schema: { type: 'object' } }],
+            responses: {
+              '201': { description: 'Created', schema: { type: 'object', properties: { id: { type: 'integer' } } } },
+              'default': { description: 'Error', schema: { type: 'object', properties: { message: { type: 'string' } } } },
+            },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    const op = api.operations[0]
+    expect(op.responseSchema).toEqual({ type: 'object', properties: { id: { type: 'integer' } } })
+    expect(op.responseSchemas!['201']).toEqual({ type: 'object', properties: { id: { type: 'integer' } } })
+    expect(op.responseSchemas!['default']).toEqual({ type: 'object', properties: { message: { type: 'string' } } })
+  })
+
   it('does not use default as primary schema', async () => {
     const spec = {
       openapi: '3.0.3',

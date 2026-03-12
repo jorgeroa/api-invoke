@@ -100,9 +100,9 @@ export interface Operation {
   parameters: Parameter[]
   /** Request body definition, if the operation accepts one. */
   requestBody?: RequestBody
-  /** Primary response schema from the first success status (200 → 201 → 202 → 2XX). Useful for code generation or validation. */
+  /** Primary response schema for the operation's success case. For OpenAPI specs, this is the first 2xx schema found (see parser for priority). Useful for code generation or validation. */
   responseSchema?: unknown
-  /** All response schemas keyed by HTTP status code (e.g. '200', '201', 'default'). Codes without schemas (e.g. 204 No Content) are omitted. */
+  /** Success and default response schemas keyed by HTTP status code (e.g. '200', '201', 'default'). Codes without schemas (e.g. 204 No Content) are omitted. Error codes (4xx/5xx) are not extracted. */
   responseSchemas?: Record<string, unknown>
   /** Primary response content type (e.g. 'application/json', 'application/xml'). Used as the default Accept header. */
   responseContentType?: ContentType | string

@@ -292,7 +292,7 @@ function flattenSchema(schema: OpenAPIV3.SchemaObject): RequestBodySchema {
   return result
 }
 
-/** Status codes to extract response schemas for. The primary schema is selected separately from success codes only. */
+/** Status codes to extract response schemas for (success + default). The primary schema is selected from the success codes in this list; 'default' is collected into responseSchemas but never used as primary. */
 const RESPONSE_STATUS_CODES = ['200', '201', '202', '204', '2XX', 'default'] as const
 
 function extractResponseSchemas(
@@ -318,7 +318,7 @@ function extractResponseSchemas(
     }
   }
 
-  // Primary: first success schema found (skip '204' which typically has no body, and 'default' which often describes errors)
+  // Primary: first success schema found (204 is excluded since it typically has no body; 'default' is excluded since it often describes errors)
   const primary = all['200'] ?? all['201'] ?? all['202'] ?? all['2XX']
   return { primary, all }
 }

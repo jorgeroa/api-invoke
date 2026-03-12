@@ -1,5 +1,5 @@
 /**
- * HTTP request execution with error classification.
+ * HTTP request execution with body serialization (JSON, form-urlencoded, multipart) and error classification.
  * Pluggable: uses global fetch by default, can be overridden.
  */
 
@@ -103,7 +103,7 @@ export function buildRequest(
     headers[HeaderName.COOKIE] = cookieHeader
   }
 
-  // Assemble body from flat args if no explicit 'body' key and operation has a requestBody
+  // Assemble body from flat args if no explicit 'body' key, operation has a requestBody, and method allows a body
   let bodyData = args['body']
   if (!bodyData && operation.requestBody && method !== HttpMethod.GET && method !== HttpMethod.HEAD && method !== HttpMethod.OPTIONS) {
     const bodyProps = operation.requestBody.schema.properties
@@ -136,8 +136,13 @@ export function buildRequest(
       body = params.toString()
       headers[HeaderName.CONTENT_TYPE] = ContentType.FORM_URLENCODED
     } else if (contentType === ContentType.MULTIPART) {
+      if (typeof bodyData !== 'object' || bodyData === null) {
+        throw new Error(
+          `Multipart/form-data body for operation "${operation.id}" must be an object, got ${typeof bodyData}`
+        )
+      }
       const formData = new FormData()
-      const obj = typeof bodyData === 'object' && bodyData !== null ? bodyData as Record<string, unknown> : {}
+      const obj = bodyData as Record<string, unknown>
       for (const [key, value] of Object.entries(obj)) {
         if (value === undefined || value === null) continue
         if (value instanceof Blob) {

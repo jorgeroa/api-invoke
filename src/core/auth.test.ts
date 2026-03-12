@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { injectAuth, maskAuth, refreshOAuth2Token } from './auth'
 import { AuthType, HeaderName, ParamLocation } from './types'
+import { API_INVOKE_ERROR_NAME, ErrorKind } from './errors'
 
 describe('injectAuth', () => {
   it('injects bearer token', () => {
@@ -149,6 +150,82 @@ describe('refreshOAuth2Token', () => {
     await expect(
       refreshOAuth2Token('https://auth.example.com/token', 'rt_old', { fetch: mockFetch })
     ).rejects.toThrow('not valid JSON')
+  })
+
+  it('throws ApiInvokeError with kind AUTH on HTTP error', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('invalid_grant', { status: 400, statusText: 'Bad Request' })
+    )
+
+    await expect(
+      refreshOAuth2Token('https://auth.example.com/token', 'rt_expired', { fetch: mockFetch })
+    ).rejects.toMatchObject({
+      name: API_INVOKE_ERROR_NAME,
+      kind: ErrorKind.AUTH,
+      status: 400,
+      retryable: false,
+    })
+  })
+
+  it('throws ApiInvokeError with kind PARSE on invalid JSON', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('<html>error</html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      })
+    )
+
+    await expect(
+      refreshOAuth2Token('https://auth.example.com/token', 'rt_old', { fetch: mockFetch })
+    ).rejects.toMatchObject({
+      name: API_INVOKE_ERROR_NAME,
+      kind: ErrorKind.PARSE,
+      retryable: false,
+    })
+  })
+
+  it('throws ApiInvokeError with kind AUTH when access_token is empty string', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ access_token: '' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+
+    await expect(
+      refreshOAuth2Token('https://auth.example.com/token', 'rt_old', { fetch: mockFetch })
+    ).rejects.toMatchObject({
+      name: API_INVOKE_ERROR_NAME,
+      kind: ErrorKind.AUTH,
+    })
+  })
+
+  it('includes body-read failure context when error body is unreadable', async () => {
+    const badResponse = new Response(null, { status: 400, statusText: 'Bad Request' })
+    vi.spyOn(badResponse, 'text').mockRejectedValue(new Error('stream closed'))
+    const mockFetch = vi.fn().mockResolvedValue(badResponse)
+
+    await expect(
+      refreshOAuth2Token('https://auth.example.com/token', 'rt_old', { fetch: mockFetch })
+    ).rejects.toMatchObject({
+      name: API_INVOKE_ERROR_NAME,
+      kind: ErrorKind.AUTH,
+      message: expect.stringContaining('stream closed'),
+    })
+  })
+
+  it('marks 5xx refresh errors as retryable', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('internal error', { status: 503, statusText: 'Service Unavailable' })
+    )
+
+    await expect(
+      refreshOAuth2Token('https://auth.example.com/token', 'rt', { fetch: mockFetch })
+    ).rejects.toMatchObject({
+      name: API_INVOKE_ERROR_NAME,
+      kind: ErrorKind.AUTH,
+      retryable: true,
+    })
   })
 
   it('sends request without client credentials or scopes when not provided', async () => {

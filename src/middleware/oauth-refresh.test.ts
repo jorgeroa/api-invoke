@@ -118,10 +118,10 @@ describe('withOAuthRefresh', () => {
     const response = await fetch('https://api.example.com/data')
     expect(response.status).toBe(401)
 
-    // Verify warning was logged
+    // Verify warning was logged with the full error object
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('[api-invoke] OAuth2 token refresh failed'),
-      expect.stringContaining('400 Bad Request'),
+      expect.objectContaining({ message: expect.stringContaining('400 Bad Request') }),
     )
     warnSpy.mockRestore()
   })
@@ -267,7 +267,7 @@ describe('withOAuthRefresh', () => {
 
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('[api-invoke] onTokenRefresh callback threw'),
-      'DB write failed',
+      expect.objectContaining({ message: 'DB write failed' }),
     )
     warnSpy.mockRestore()
   })
@@ -295,6 +295,49 @@ describe('withOAuthRefresh', () => {
     expect(retryHeaders[authKeys[0]]).toBe('Bearer new_at')
   })
 
+  it('handles array-tuple headers on retry', async () => {
+    const baseFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(mockTokenResponse('new_at'))
+      .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+    }, baseFetch)
+
+    await fetch('https://api.example.com/data', {
+      headers: [['Authorization', 'Bearer old'], ['X-Custom', 'value']],
+    })
+
+    const retryCall = baseFetch.mock.calls[2]
+    const retryHeaders = retryCall[1].headers as Record<string, string>
+    expect(retryHeaders['Authorization']).toBe('Bearer new_at')
+    expect(retryHeaders['x-custom']).toBe('value')
+  })
+
+  it('returns original 401 for Node.js-style stream bodies', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const baseFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+
+    const fetch = withOAuthRefresh({
+      tokenUrl: 'https://auth.example.com/token',
+      refreshToken: 'rt',
+    }, baseFetch)
+
+    // Simulate a Node.js Readable-like object (has .pipe method)
+    const nodeStream = { pipe: () => {} }
+    const response = await fetch('https://api.example.com/upload', {
+      method: 'POST',
+      body: nodeStream as unknown as BodyInit,
+    })
+
+    expect(response.status).toBe(401)
+    expect(baseFetch).toHaveBeenCalledTimes(1)
+    warnSpy.mockRestore()
+  })
+
   it('returns original 401 for ReadableStream bodies', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const baseFetch = vi.fn()
@@ -315,7 +358,7 @@ describe('withOAuthRefresh', () => {
     // Should not have attempted refresh
     expect(baseFetch).toHaveBeenCalledTimes(1)
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('ReadableStream'),
+      expect.stringContaining('stream body'),
     )
     warnSpy.mockRestore()
   })

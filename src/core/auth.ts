@@ -5,6 +5,7 @@
 
 import type { Auth } from './types'
 import { AuthType, HeaderName, ParamLocation } from './types'
+import { ApiInvokeError, ErrorKind } from './errors'
 
 /**
  * A request with authentication applied (URL may be modified for query-based auth).
@@ -95,7 +96,8 @@ export interface OAuth2TokenResult {
  * @param refreshToken - The refresh token to exchange
  * @param options - Optional client credentials, scopes, and custom fetch
  * @returns The new token set
- * @throws {Error} If the response is not OK, the body is not valid JSON, or the response is missing the required `access_token` field
+ * @throws {ApiInvokeError} With `kind: 'auth'` if the token endpoint returns a non-OK response or the response is missing `access_token`
+ * @throws {ApiInvokeError} With `kind: 'parse'` if the response body is not valid JSON
  */
 export async function refreshOAuth2Token(
   tokenUrl: string,
@@ -127,27 +129,38 @@ export async function refreshOAuth2Token(
     try {
       const body = await response.text()
       errorDetail = body ? `: ${body.slice(0, 500)}` : ''
-    } catch {
-      // Body unreadable, proceed with status-only message
+    } catch (bodyReadError) {
+      errorDetail = ` (error body unreadable: ${bodyReadError instanceof Error ? bodyReadError.message : String(bodyReadError)})`
     }
-    throw new Error(`OAuth2 token refresh failed: ${response.status} ${response.statusText}${errorDetail}`)
+    throw new ApiInvokeError({
+      kind: ErrorKind.AUTH,
+      message: `OAuth2 token refresh failed: ${response.status} ${response.statusText}${errorDetail}`,
+      suggestion: 'Check the refresh token, client credentials, and token endpoint URL.',
+      retryable: response.status >= 500,
+      status: response.status,
+    })
   }
 
   let data: Record<string, unknown>
   try {
     data = await response.json() as Record<string, unknown>
   } catch (parseError) {
-    throw new Error(
-      `OAuth2 token refresh succeeded (${response.status}) but response body is not valid JSON`,
-      { cause: parseError },
-    )
+    throw new ApiInvokeError({
+      kind: ErrorKind.PARSE,
+      message: `OAuth2 token refresh succeeded (${response.status}) but response body is not valid JSON`,
+      suggestion: 'The token endpoint returned a non-JSON response. Verify the endpoint URL.',
+      retryable: false,
+    })
   }
 
   const accessToken = data.access_token
   if (typeof accessToken !== 'string' || !accessToken) {
-    throw new Error(
-      `OAuth2 token refresh response missing required "access_token" field. Got keys: [${Object.keys(data).join(', ')}]`,
-    )
+    throw new ApiInvokeError({
+      kind: ErrorKind.AUTH,
+      message: `OAuth2 token refresh response missing required "access_token" field. Got keys: [${Object.keys(data).join(', ')}]`,
+      suggestion: 'The token endpoint response did not include a valid access_token. Verify the endpoint and grant type.',
+      retryable: false,
+    })
   }
 
   return {

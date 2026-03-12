@@ -731,6 +731,38 @@ describe('buildRequest', () => {
     expect(req.body).toBeUndefined()
   })
 
+  it('excludes body for OPTIONS operations even with requestBody', () => {
+    const optionsOp: Operation = {
+      id: 'corsProbe',
+      path: '/resource',
+      method: HttpMethod.OPTIONS,
+      parameters: [],
+      requestBody: postOp.requestBody,
+      tags: [],
+    }
+    const req = buildRequest(baseUrl, optionsOp, { name: 'Alice' })
+    expect(req.method).toBe(HttpMethod.OPTIONS)
+    expect(req.body).toBeUndefined()
+  })
+
+  it('throws when multipart body is not an object', () => {
+    const multipartOp: Operation = {
+      id: 'upload',
+      path: '/upload',
+      method: HttpMethod.POST,
+      parameters: [],
+      requestBody: {
+        required: true,
+        contentType: ContentType.MULTIPART,
+        schema: { type: 'object', raw: {}, properties: { file: { type: 'string' } } },
+      },
+      tags: [],
+    }
+    expect(() => buildRequest(baseUrl, multipartOp, { body: 'not-an-object' })).toThrow(
+      'must be an object'
+    )
+  })
+
   it('includes cookie params in headers', () => {
     const op: Operation = {
       id: 'test',
