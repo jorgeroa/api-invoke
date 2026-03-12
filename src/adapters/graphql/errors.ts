@@ -4,7 +4,7 @@
  */
 
 import type { ExecutionResult } from '../../core/types'
-import { ApiInvokeError } from '../../core/errors'
+import { ApiInvokeError, ErrorKind } from '../../core/errors'
 
 /** A single GraphQL error from the response `errors` array. */
 export interface GraphQLError {
@@ -39,7 +39,7 @@ export function throwOnGraphQLErrors(result: ExecutionResult): void {
   const errors = body.errors as GraphQLError[]
   const messages = errors.map(e => e.message).join('; ')
   throw new ApiInvokeError({
-    kind: 'graphql',
+    kind: ErrorKind.GRAPHQL,
     message: `GraphQL errors: ${messages}`,
     suggestion: 'Check the query and variables for correctness.',
     retryable: false,

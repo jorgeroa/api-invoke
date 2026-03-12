@@ -1,6 +1,6 @@
 /**
  * Core types for api-invoke.
- * Spec-agnostic — these work with any API format (OpenAPI, raw URL, future adapters).
+ * Spec-agnostic — these work with any API format (OpenAPI, GraphQL, raw URL, manual builder).
  * All enums use `as const` objects for autocomplete + extensibility.
  */
 
@@ -63,7 +63,7 @@ export type HeaderName = (typeof HeaderName)[keyof typeof HeaderName]
 
 /**
  * A parsed API specification, normalized into a spec-agnostic format.
- * This is the central data model — all adapters (OpenAPI, raw URL, manual builder) produce this shape.
+ * This is the central data model — all adapters (OpenAPI, GraphQL, raw URL, manual builder) produce this shape.
  */
 export interface ParsedAPI {
   /** Human-readable API title (e.g. 'Petstore API'). */
@@ -111,7 +111,7 @@ export interface Operation {
   tags: string[]
   /**
    * Custom body builder for protocol adapters (e.g., GraphQL).
-   * When set, the executor calls this instead of flat-arg assembly to construct the request body.
+   * When set and no explicit 'body' key is in args, the executor calls this instead of flat-arg assembly to construct the request body.
    * Receives the full args map and returns the body data to be serialized.
    */
   buildBody?: (args: Record<string, unknown>) => unknown

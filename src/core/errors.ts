@@ -21,6 +21,7 @@ export const ErrorKind = {
   PARSE: 'parse',
   RATE_LIMIT: 'rate-limit',
   TIMEOUT: 'timeout',
+  GRAPHQL: 'graphql',
 } as const
 export type ErrorKind = (typeof ErrorKind)[keyof typeof ErrorKind]
 

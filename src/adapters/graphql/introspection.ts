@@ -16,7 +16,7 @@ export const TypeKind = {
 } as const
 export type TypeKind = (typeof TypeKind)[keyof typeof TypeKind]
 
-/** Standard introspection query used by GraphiQL, Apollo, and other tools. */
+/** Introspection query covering types, fields, args, and enums. Omits possibleTypes and directives for simplicity. */
 export const INTROSPECTION_QUERY = `query IntrospectionQuery {
   __schema {
     queryType { name }
@@ -50,7 +50,7 @@ export interface IntrospectionSchema {
 }
 
 export interface IntrospectionType {
-  kind: string
+  kind: TypeKind | string
   name: string
   description?: string | null
   fields?: IntrospectionField[] | null
@@ -73,7 +73,7 @@ export interface IntrospectionInputValue {
 }
 
 export interface IntrospectionTypeRef {
-  kind: string
+  kind: TypeKind | string
   name: string | null
   ofType?: IntrospectionTypeRef | null
 }

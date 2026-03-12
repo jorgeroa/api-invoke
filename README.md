@@ -154,12 +154,14 @@ console.log(result.data) // { data: { country: { name: 'Brazil', capital: 'BrasÃ
 GraphQL returns HTTP 200 even on errors. Use the error helpers to check:
 
 ```typescript
-import { hasGraphQLErrors, throwOnGraphQLErrors } from 'api-invoke'
+import { throwOnGraphQLErrors, getGraphQLErrors } from 'api-invoke'
 
 const result = await countries.execute('country', { code: 'INVALID' })
-if (hasGraphQLErrors(result)) {
-  throwOnGraphQLErrors(result) // throws ApiInvokeError with kind 'graphql'
-}
+throwOnGraphQLErrors(result) // throws ApiInvokeError for total failures (no data)
+
+// For partial errors (data + errors both present), inspect manually:
+const errors = getGraphQLErrors(result)
+if (errors.length > 0) console.warn('Partial errors:', errors)
 ```
 
 ### With authentication

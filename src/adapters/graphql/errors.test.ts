@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { hasGraphQLErrors, getGraphQLErrors, throwOnGraphQLErrors } from './errors'
-import { API_INVOKE_ERROR_NAME } from '../../core/errors'
+import { API_INVOKE_ERROR_NAME, ErrorKind } from '../../core/errors'
 import type { ExecutionResult } from '../../core/types'
 
 function makeResult(data: unknown): ExecutionResult {
@@ -59,7 +59,7 @@ describe('throwOnGraphQLErrors', () => {
       throwOnGraphQLErrors(result)
       expect.fail('Should have thrown')
     } catch (e) {
-      expect(e).toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: 'graphql', retryable: false })
+      expect(e).toMatchObject({ name: API_INVOKE_ERROR_NAME, kind: ErrorKind.GRAPHQL, retryable: false })
     }
   })
 

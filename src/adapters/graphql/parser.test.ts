@@ -160,7 +160,7 @@ describe('parseGraphQLSchema', () => {
 
     const api = await parseGraphQLSchema(input)
 
-    const sub = api.operations.find(o => o.id === 'onMessage')!
+    const sub = api.operations.find(o => o.id === 'subscription_onMessage')!
     expect(sub.tags).toEqual(['subscription'])
     expect(sub.buildBody).toBeUndefined()
   })

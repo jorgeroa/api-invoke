@@ -103,7 +103,7 @@ export function buildRequest(
     headers[HeaderName.COOKIE] = cookieHeader
   }
 
-  // Assemble body: buildBody hook (protocol adapters) > explicit 'body' arg > flat-arg assembly
+  // Assemble body: explicit 'body' arg > buildBody hook (protocol adapters) > flat-arg assembly
   let bodyData = args['body']
   const allowsBody = method !== HttpMethod.GET && method !== HttpMethod.HEAD && method !== HttpMethod.OPTIONS
   if (!bodyData && operation.buildBody && allowsBody) {

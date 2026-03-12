@@ -1,6 +1,6 @@
 /**
  * Main client — the public API for api-invoke.
- * Supports three tiers: full spec, raw URL, and zero-spec execution.
+ * Supports three tiers: full spec (OpenAPI/GraphQL), raw URL, and zero-spec execution.
  */
 
 import type { ParsedAPI, Operation, Auth, AuthScheme, ExecutionResult, StreamingExecutionResult, SSEEvent, ClientOptions, Middleware } from './core/types'
@@ -12,8 +12,7 @@ import { parseRawUrl } from './adapters/raw/parser'
  * Heuristic: detect if a URL points to a GraphQL endpoint by URL pattern.
  */
 function isGraphQLUrl(url: string): boolean {
-  const lower = url.toLowerCase()
-  return lower.endsWith('/graphql') || lower.includes('/graphql?')
+  return /\/graphql\b/i.test(url)
 }
 
 /**
@@ -335,6 +334,11 @@ async function tryContentDetection(url: string, options: ClientOptions): Promise
   if (isSpecContent(obj)) {
     // Content IS a spec — let parse errors propagate
     return parseOpenAPISpec(obj, { specUrl: url })
+  }
+
+  if (isGraphQLIntrospection(obj)) {
+    const { parseGraphQLSchema } = await import('./adapters/graphql/parser')
+    return parseGraphQLSchema(obj, { endpoint: url, fetch: options.fetch })
   }
 
   return parseRawUrl(url)

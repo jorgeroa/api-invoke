@@ -5,7 +5,7 @@
 
 import type { ParsedAPI, Operation, RequestBody, RequestBodyProperty } from '../../core/types'
 import { HttpMethod, ContentType, SpecFormat } from '../../core/types'
-import { parseError } from '../../core/errors'
+import { ApiInvokeError, ErrorKind } from '../../core/errors'
 import { INTROSPECTION_QUERY, TypeKind } from './introspection'
 import type { IntrospectionSchema, IntrospectionType, IntrospectionField, IntrospectionInputValue, IntrospectionTypeRef } from './introspection'
 import { buildQueryString, unwrapType, isNonNull, formatTypeRef } from './query-builder'
@@ -27,7 +27,7 @@ export interface GraphQLParseOptions {
  *   URL: runs introspection query against the endpoint.
  *   Object: expects `{ data: { __schema: ... } }` or `{ __schema: ... }` shape.
  * @param options - Configuration options.
- * @returns A ParsedAPI with one operation per query/mutation field.
+ * @returns A ParsedAPI with one operation per query/mutation/subscription field.
  */
 export async function parseGraphQLSchema(
   input: string | object,
@@ -40,7 +40,12 @@ export async function parseGraphQLSchema(
 
   if (typeof input === 'string') {
     if (!input.startsWith('http')) {
-      throw parseError(`GraphQL input must be an endpoint URL (starting with http) or an introspection JSON object. SDL parsing is not yet supported.`)
+      throw new ApiInvokeError({
+        kind: ErrorKind.PARSE,
+        message: 'GraphQL input must be an endpoint URL (starting with http) or an introspection JSON object. SDL parsing is not yet supported.',
+        suggestion: 'Pass a URL like "https://api.example.com/graphql" or an introspection result object.',
+        retryable: false,
+      })
     }
     endpoint = options?.endpoint ?? input
     schema = await fetchIntrospection(input, options?.fetch)
@@ -73,7 +78,7 @@ export async function parseGraphQLSchema(
     }
   }
 
-  // Parse subscription fields (tagged, not executable)
+  // Parse subscription fields — tagged for discovery but not executable via HTTP (subscriptions require WebSocket). No buildBody hook is set.
   if (schema.subscriptionType?.name) {
     const subType = typeMap.get(schema.subscriptionType.name)
     if (subType?.fields) {
@@ -109,14 +114,35 @@ async function fetchIntrospection(
       body: JSON.stringify({ query: INTROSPECTION_QUERY }),
     })
   } catch (err) {
-    throw parseError(`Failed to fetch GraphQL introspection from ${url}: ${err instanceof Error ? err.message : String(err)}`)
+    throw new ApiInvokeError({
+      kind: ErrorKind.NETWORK,
+      message: `Failed to fetch GraphQL introspection from ${url}: ${err instanceof Error ? err.message : String(err)}`,
+      suggestion: 'Check the endpoint URL and your network connection.',
+      retryable: true,
+    })
   }
 
   if (!response.ok) {
-    throw parseError(`GraphQL introspection failed with HTTP ${response.status} from ${url}`)
+    throw new ApiInvokeError({
+      kind: ErrorKind.HTTP,
+      message: `GraphQL introspection failed with HTTP ${response.status} from ${url}.`,
+      suggestion: 'Verify the endpoint supports introspection and is accessible.',
+      retryable: response.status >= 500,
+      status: response.status,
+    })
   }
 
-  const json = await response.json() as Record<string, unknown>
+  let json: Record<string, unknown>
+  try {
+    json = await response.json() as Record<string, unknown>
+  } catch {
+    throw new ApiInvokeError({
+      kind: ErrorKind.PARSE,
+      message: `GraphQL introspection response from ${url} is not valid JSON.`,
+      suggestion: 'The endpoint returned a non-JSON response. Verify it is a GraphQL endpoint.',
+      retryable: false,
+    })
+  }
   return extractSchema(json)
 }
 
@@ -137,7 +163,12 @@ function extractSchema(obj: object): IntrospectionSchema {
     }
   }
 
-  throw parseError('Invalid GraphQL introspection result: expected { __schema: ... } or { data: { __schema: ... } }')
+  throw new ApiInvokeError({
+    kind: ErrorKind.PARSE,
+    message: 'Invalid GraphQL introspection result: expected { __schema: ... } or { data: { __schema: ... } }.',
+    suggestion: 'Pass a valid introspection result object or a URL to a GraphQL endpoint.',
+    retryable: false,
+  })
 }
 
 /** Build a type lookup map from introspection types. */
@@ -186,7 +217,9 @@ function buildOperation(
   typeMap: Map<string, IntrospectionType>,
   maxDepth: number,
 ): Operation {
-  const id = operationType === 'mutation' ? `mutation_${field.name}` : field.name
+  const id = operationType === 'mutation' ? `mutation_${field.name}`
+           : operationType === 'subscription' ? `subscription_${field.name}`
+           : field.name
   const tags = [operationType]
 
   const queryString = operationType !== 'subscription'
@@ -208,10 +241,14 @@ function buildOperation(
   }
 
   if (queryString) {
-    operation.buildBody = (args: Record<string, unknown>) => ({
-      query: queryString,
-      variables: args,
-    })
+    const argNames = new Set(field.args.map(a => a.name))
+    operation.buildBody = (args: Record<string, unknown>) => {
+      const variables: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(args)) {
+        if (argNames.has(k)) variables[k] = v
+      }
+      return { query: queryString, variables }
+    }
   }
 
   return operation
@@ -256,7 +293,7 @@ function mapInputValueToProperty(
     ? `${input.description} (${formatTypeRef(input.type)})`
     : formatTypeRef(input.type)
 
-  // Check if the unwrapped type is inside a LIST
+  // Check if the type ref has a LIST wrapper in its chain
   const isList = isListType(input.type)
 
   if (base.kind === TypeKind.SCALAR) {
