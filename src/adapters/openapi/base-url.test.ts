@@ -13,9 +13,24 @@ describe('extractOpenAPI3BaseUrl', () => {
     expect(extractOpenAPI3BaseUrl(api)).toBe('')
   })
 
-  it('returns empty for relative URLs', () => {
+  it('returns empty for relative URLs without specUrl', () => {
     const api = { servers: [{ url: '/api/v1' }] } as OpenAPIV3.Document
     expect(extractOpenAPI3BaseUrl(api)).toBe('')
+  })
+
+  it('resolves relative "/" against specUrl', () => {
+    const api = { servers: [{ url: '/' }] } as OpenAPIV3.Document
+    expect(extractOpenAPI3BaseUrl(api, 'http://localhost:8788/api/openapi.json')).toBe('http://localhost:8788')
+  })
+
+  it('resolves relative "/api/v1" against specUrl', () => {
+    const api = { servers: [{ url: '/api/v1' }] } as OpenAPIV3.Document
+    expect(extractOpenAPI3BaseUrl(api, 'https://example.com/docs/openapi.json')).toBe('https://example.com/api/v1')
+  })
+
+  it('resolves relative path without leading slash against specUrl', () => {
+    const api = { servers: [{ url: 'v2' }] } as OpenAPIV3.Document
+    expect(extractOpenAPI3BaseUrl(api, 'https://example.com/api/openapi.json')).toBe('https://example.com/api/v2')
   })
 
   it('interpolates server variables with defaults', () => {

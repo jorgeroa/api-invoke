@@ -66,12 +66,13 @@ export async function parseOpenAPISpec(
     const title = api.info.title
     const version = api.info.version
 
+    const sourceUrl = options?.specUrl ?? (typeof specUrlOrObject === 'string' ? specUrlOrObject : undefined)
+
     let baseUrl = isOpenAPI3
-      ? extractOpenAPI3BaseUrl(api as OpenAPIV3.Document)
+      ? extractOpenAPI3BaseUrl(api as OpenAPIV3.Document, sourceUrl)
       : extractSwagger2BaseUrl(api as OpenAPIV2.Document)
 
     // Fallback: derive base URL from spec URL when spec doesn't provide one
-    const sourceUrl = options?.specUrl ?? (typeof specUrlOrObject === 'string' ? specUrlOrObject : undefined)
     if (!baseUrl && sourceUrl) {
       baseUrl = deriveBaseUrl(sourceUrl)
     }
