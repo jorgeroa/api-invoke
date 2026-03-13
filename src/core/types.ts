@@ -107,6 +107,8 @@ export interface Operation {
   responseSchemas?: Record<string, unknown>
   /** Primary response content type (e.g. 'application/json', 'application/xml'). Used as the default Accept header. */
   responseContentType?: ContentType | string
+  /** Error response descriptions keyed by HTTP status code (e.g. '404' → 'User not found'). Extracted from 4xx/5xx responses in the spec. */
+  errorHints?: Record<string, string>
   /** Tags for grouping operations (e.g. ['users', 'admin']). */
   tags: string[]
   /**

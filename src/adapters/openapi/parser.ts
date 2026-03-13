@@ -129,6 +129,7 @@ function extractOperations(
       const requestBody = extractRequestBody(op, isOpenAPI3)
       const { primary: responseSchema, all: responseSchemas } = extractResponseSchemas(op, isOpenAPI3)
       const responseContentType = extractResponseContentType(op, isOpenAPI3)
+      const errorHints = extractErrorHints(op)
 
       // Generate a stable ID from operationId or method+path
       const id = op.operationId
@@ -145,6 +146,7 @@ function extractOperations(
         responseSchema,
         responseSchemas: Object.keys(responseSchemas).length > 0 ? responseSchemas : undefined,
         responseContentType,
+        errorHints,
         tags: op.tags ?? [],
       })
     }
@@ -330,6 +332,26 @@ function extractResponseSchemas(
   // Primary: first success schema found (204 is excluded since it typically has no body; 'default' is excluded since it often describes errors)
   const primary = all['200'] ?? all['201'] ?? all['202'] ?? all['2XX']
   return { primary, all }
+}
+
+/** Common error status codes to extract descriptions from. */
+const ERROR_STATUS_CODES = ['400', '401', '403', '404', '409', '422', '429', '500'] as const
+
+/** Extract error response descriptions (not full schemas) for LLM hints. */
+function extractErrorHints(
+  operation: OpenAPIV3.OperationObject | OpenAPIV2.OperationObject,
+): Record<string, string> | undefined {
+  const responses = operation.responses
+  if (!responses) return undefined
+
+  const hints: Record<string, string> = {}
+  for (const code of ERROR_STATUS_CODES) {
+    const resp = responses[code] as OpenAPIV3.ResponseObject | OpenAPIV2.ResponseObject | undefined
+    if (!resp?.description) continue
+    hints[code] = resp.description
+  }
+
+  return Object.keys(hints).length > 0 ? hints : undefined
 }
 
 function extractResponseContentType(
