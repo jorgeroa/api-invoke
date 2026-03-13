@@ -55,7 +55,13 @@ export async function parseOpenAPISpec(
   options?: { specUrl?: string },
 ): Promise<ParsedAPI> {
   try {
-    const apiRaw = await SwaggerParser.dereference(specUrlOrObject as string)
+    let apiRaw: unknown
+    try {
+      apiRaw = await SwaggerParser.dereference(specUrlOrObject as string)
+    } catch {
+      // Fallback: parse without resolving $refs (handles specs with broken references)
+      apiRaw = await SwaggerParser.parse(specUrlOrObject as string)
+    }
     const api = apiRaw as unknown as OpenAPIV3.Document | OpenAPIV2.Document
 
     const isOpenAPI3 = 'openapi' in api
