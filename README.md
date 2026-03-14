@@ -423,6 +423,12 @@ pnpm link /path/to/api-invoke
 
 This creates a symlink — edits to `api-invoke` source are reflected instantly. Re-run `pnpm link` after every `pnpm install` in the consumer project.
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, workflow, and guidelines.
+
+This project follows the [Contributor Covenant Code of Conduct](./CODE_OF_CONDUCT.md).
+
 ## License
 
 MIT
