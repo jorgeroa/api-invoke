@@ -39,6 +39,66 @@ describe('normalizeType', () => {
   })
 })
 
+describe('base path overlap stripping', () => {
+  it('strips overlapping base path from all operation paths', async () => {
+    const spec = {
+      openapi: '3.0.3',
+      info: { title: 'Test', version: '1.0.0' },
+      servers: [{ url: '/api/1' }],
+      paths: {
+        '/api/1/metastore/schemas': {
+          get: { operationId: 'getSchemas', responses: { '200': { description: 'OK' } } },
+        },
+        '/api/1/metastore/schemas/dataset': {
+          get: { operationId: 'getDataset', responses: { '200': { description: 'OK' } } },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec, { specUrl: 'https://example.com/api/1' })
+    expect(api.baseUrl).toBe('https://example.com/api/1')
+    expect(api.operations.find(o => o.id === 'getSchemas')!.path).toBe('/metastore/schemas')
+    expect(api.operations.find(o => o.id === 'getDataset')!.path).toBe('/metastore/schemas/dataset')
+  })
+
+  it('does not strip when paths do not overlap with base path', async () => {
+    const spec = {
+      openapi: '3.0.3',
+      info: { title: 'Test', version: '1.0.0' },
+      servers: [{ url: 'https://example.com/v1' }],
+      paths: {
+        '/users': {
+          get: { operationId: 'getUsers', responses: { '200': { description: 'OK' } } },
+        },
+        '/posts': {
+          get: { operationId: 'getPosts', responses: { '200': { description: 'OK' } } },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    expect(api.operations.find(o => o.id === 'getUsers')!.path).toBe('/users')
+    expect(api.operations.find(o => o.id === 'getPosts')!.path).toBe('/posts')
+  })
+
+  it('does not strip when only some paths overlap', async () => {
+    const spec = {
+      openapi: '3.0.3',
+      info: { title: 'Test', version: '1.0.0' },
+      servers: [{ url: '/api' }],
+      paths: {
+        '/api/users': {
+          get: { operationId: 'getUsers', responses: { '200': { description: 'OK' } } },
+        },
+        '/health': {
+          get: { operationId: 'health', responses: { '200': { description: 'OK' } } },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec, { specUrl: 'https://example.com/api' })
+    expect(api.operations.find(o => o.id === 'getUsers')!.path).toBe('/api/users')
+    expect(api.operations.find(o => o.id === 'health')!.path).toBe('/health')
+  })
+})
+
 describe('HEAD/OPTIONS parsing', () => {
   const spec = {
     openapi: '3.0.3',

@@ -84,6 +84,26 @@ export async function parseOpenAPISpec(
     }
 
     const operations = extractOperations(api, isOpenAPI3)
+
+    // Fix path overlap: when the resolved base URL has a path (e.g., /api/1)
+    // and operation paths also start with that path (e.g., /api/1/metastore/...),
+    // strip the overlapping prefix from operation paths to avoid duplication.
+    if (baseUrl) {
+      try {
+        const basePath = new URL(baseUrl).pathname.replace(/\/$/, '')
+        if (basePath && basePath !== '/') {
+          const allOverlap = operations.length > 0 && operations.every(
+            op => op.path === basePath || op.path.startsWith(basePath + '/')
+          )
+          if (allOverlap) {
+            for (const op of operations) {
+              op.path = op.path.slice(basePath.length) || '/'
+            }
+          }
+        }
+      } catch { /* ignore invalid base URL */ }
+    }
+
     const authSchemes = extractSecuritySchemes(api, isOpenAPI3)
 
     return {
