@@ -7,17 +7,7 @@ import type { ParsedAPI, Operation, Auth, AuthScheme, ExecutionResult, Streaming
 import { executeOperation, executeOperationStream } from './core/executor'
 import { parseOpenAPISpec } from './adapters/openapi/parser'
 import { parseRawUrl } from './adapters/raw/parser'
-
-/**
- * Heuristic: detect if a URL points to a GraphQL endpoint by URL pattern.
- */
-function isGraphQLUrl(url: string): boolean {
-  try {
-    return /\/graphql(?:$|[\/\?#])/i.test(new URL(url).pathname)
-  } catch {
-    return false
-  }
-}
+import { isSpecUrl, isSpecContent, isGraphQLUrl } from './core/detection'
 
 /**
  * Heuristic: detect if a parsed JSON object looks like a GraphQL introspection result.
@@ -26,41 +16,6 @@ function isGraphQLIntrospection(obj: Record<string, unknown>): boolean {
   if (obj.__schema !== undefined) return true
   if (typeof obj.data === 'object' && obj.data !== null && '__schema' in (obj.data as object)) return true
   return false
-}
-
-/**
- * Heuristic: detect if a URL points to an OpenAPI/Swagger spec by URL pattern.
- */
-function isSpecUrl(url: string): boolean {
-  const lower = url.toLowerCase()
-  return (
-    lower.endsWith('/openapi.json') ||
-    lower.endsWith('/openapi.yaml') ||
-    lower.endsWith('/openapi.yml') ||
-    lower.endsWith('/swagger.json') ||
-    lower.endsWith('/swagger.yaml') ||
-    lower.endsWith('/swagger.yml') ||
-    lower.endsWith('/spec.json') ||
-    lower.endsWith('/spec.yaml') ||
-    lower.endsWith('/spec.yml') ||
-    lower.endsWith('/api-docs') ||
-    lower.endsWith('/api-docs.json') ||
-    lower.endsWith('/api-docs.yaml') ||
-    lower.endsWith('/v2/api-docs') ||
-    lower.endsWith('/v3/api-docs') ||
-    lower.includes('swagger') ||
-    lower.includes('openapi')
-  )
-}
-
-/**
- * Heuristic: detect if a parsed JSON object looks like an OpenAPI/Swagger spec by content.
- */
-function isSpecContent(obj: Record<string, unknown>): boolean {
-  return (
-    typeof obj.openapi === 'string' ||
-    typeof obj.swagger === 'string'
-  )
 }
 
 /**

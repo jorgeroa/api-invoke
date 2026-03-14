@@ -56,6 +56,9 @@ export type { ExecuteOptions, BuildRequestOptions, BuiltRequest } from './core/e
 // SSE parser (advanced usage)
 export { parseSSE } from './core/sse'
 
+// Detection utilities
+export { isSpecUrl, isSpecContent, isGraphQLUrl } from './core/detection'
+
 // URL utilities
 export { buildUrl, deriveBaseUrl } from './core/url-builder'
 
