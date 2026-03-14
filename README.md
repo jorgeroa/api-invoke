@@ -404,6 +404,25 @@ import type {
 } from 'api-invoke'
 ```
 
+## Local Development
+
+```bash
+git clone https://github.com/jorgeroa/api-invoke.git
+cd api-invoke
+pnpm install
+pnpm build
+pnpm test
+```
+
+To test local changes in a project that depends on `api-invoke`:
+
+```bash
+cd /path/to/your-project
+pnpm link /path/to/api-invoke
+```
+
+This creates a symlink — edits to `api-invoke` source are reflected instantly. Re-run `pnpm link` after every `pnpm install` in the consumer project.
+
 ## License
 
 MIT
