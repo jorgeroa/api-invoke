@@ -10,6 +10,7 @@ api-invoke is a runtime API client library (TypeScript, MIT, v0.1.0). It parses 
 - **Always create a new branch from main before the first commit** — no exceptions.
 - Branch naming: descriptive (`feat/graphql-adapter`, `fix/cors-probe`, `docs/claude-md`).
 - Do not commit directly to main.
+- **Before pushing to remote**, check if the changes affect the published package (source code, types, or dependencies — i.e. anything that ends up in `dist/`). If they do, suggest a version bump and ask the user to confirm: `patch` for bug fixes, `minor` for new features (backwards compatible), `major` for breaking changes. If confirmed, run `npm version <level>` before pushing so the tag triggers the npm publish workflow. If the changes are docs-only (README, CONTRIBUTING, CLAUDE.md, etc.), just push — no version bump needed.
 
 ## Commands
 
