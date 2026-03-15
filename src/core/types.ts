@@ -111,6 +111,8 @@ export interface Operation {
   errorHints?: Record<string, string>
   /** Tags for grouping operations (e.g. ['users', 'admin']). */
   tags: string[]
+  /** Security scheme names required by this operation. Each inner array is an alternative (OR); items within are required together (AND). Empty array (`[]`) means explicitly no auth. `undefined` means no security info available. */
+  security?: string[][]
   /**
    * Custom body builder for protocol adapters (e.g., GraphQL).
    * When set and no explicit 'body' key is in args, the executor calls this instead of flat-arg assembly to construct the request body.

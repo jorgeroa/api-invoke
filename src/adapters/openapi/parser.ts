@@ -150,6 +150,7 @@ function extractOperations(
       const { primary: responseSchema, all: responseSchemas } = extractResponseSchemas(op, isOpenAPI3)
       const responseContentType = extractResponseContentType(op, isOpenAPI3)
       const errorHints = extractErrorHints(op)
+      const security = extractOperationSecurity(op, api)
 
       // Generate a stable ID from operationId or method+path
       const id = op.operationId
@@ -168,11 +169,27 @@ function extractOperations(
         responseContentType,
         errorHints,
         tags: op.tags ?? [],
+        security,
       })
     }
   }
 
   return operations
+}
+
+function extractOperationSecurity(
+  op: OpenAPIV3.OperationObject | OpenAPIV2.OperationObject,
+  api: OpenAPIV3.Document | OpenAPIV2.Document,
+): string[][] | undefined {
+  // Per-operation security overrides global
+  if ('security' in op && op.security !== undefined) {
+    return (op.security as Record<string, string[]>[]).map(req => Object.keys(req))
+  }
+  // Fall back to global security
+  if ('security' in api && api.security !== undefined) {
+    return (api.security as Record<string, string[]>[]).map(req => Object.keys(req))
+  }
+  return undefined
 }
 
 function parseParameter(

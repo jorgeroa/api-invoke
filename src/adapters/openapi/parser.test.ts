@@ -256,3 +256,78 @@ describe('response schema extraction', () => {
     expect(op.responseSchemas!['default']).toBeDefined()
   })
 })
+
+describe('operation security extraction', () => {
+  it('extracts per-operation security requirements', async () => {
+    const spec = {
+      openapi: '3.0.0',
+      info: { title: 'Test', version: '1.0' },
+      components: { securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } } },
+      paths: {
+        '/secure': {
+          get: {
+            operationId: 'secureGet',
+            security: [{ bearerAuth: [] }],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    expect(api.operations[0].security).toEqual([['bearerAuth']])
+  })
+
+  it('treats security: [] as explicitly no auth', async () => {
+    const spec = {
+      openapi: '3.0.0',
+      info: { title: 'Test', version: '1.0' },
+      security: [{ apiKey: [] }],
+      paths: {
+        '/public': {
+          get: {
+            operationId: 'publicGet',
+            security: [],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    expect(api.operations[0].security).toEqual([])
+  })
+
+  it('inherits global security when no per-operation security', async () => {
+    const spec = {
+      openapi: '3.0.0',
+      info: { title: 'Test', version: '1.0' },
+      security: [{ bearerAuth: [] }],
+      paths: {
+        '/data': {
+          get: {
+            operationId: 'getData',
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    expect(api.operations[0].security).toEqual([['bearerAuth']])
+  })
+
+  it('returns undefined when no security defined anywhere', async () => {
+    const spec = {
+      openapi: '3.0.0',
+      info: { title: 'Test', version: '1.0' },
+      paths: {
+        '/open': {
+          get: {
+            operationId: 'openGet',
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec)
+    expect(api.operations[0].security).toBeUndefined()
+  })
+})
