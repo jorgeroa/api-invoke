@@ -40,6 +40,30 @@ describe('buildUrl', () => {
     const url = buildUrl('https://api.example.com/v1', baseOp, { id: '42' })
     expect(url).toBe('https://api.example.com/v1/users/42')
   })
+
+  it('does not append trailing slash when path is empty (executeRaw case)', () => {
+    const op: Operation = {
+      id: 'raw',
+      path: '',
+      method: HttpMethod.GET,
+      parameters: [],
+      tags: [],
+    }
+    const url = buildUrl('https://example.com/api/endpoint?foo=bar', op, {})
+    expect(url).toBe('https://example.com/api/endpoint?foo=bar')
+  })
+
+  it('does not append trailing slash when path is empty (no query params)', () => {
+    const op: Operation = {
+      id: 'raw',
+      path: '',
+      method: HttpMethod.GET,
+      parameters: [],
+      tags: [],
+    }
+    const url = buildUrl('https://example.com/api/endpoint', op, {})
+    expect(url).toBe('https://example.com/api/endpoint')
+  })
 })
 
 describe('default parameter values', () => {

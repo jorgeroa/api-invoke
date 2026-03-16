@@ -33,7 +33,7 @@ export function buildUrl(
 
   // Join base URL and path, avoiding double slashes
   const fullBase = baseUrl.replace(/\/$/, '')
-  const fullPath = path.startsWith('/') ? path : `/${path}`
+  const fullPath = path === '' ? '' : path.startsWith('/') ? path : `/${path}`
   const url = new URL(`${fullBase}${fullPath}`)
 
   // Append query parameters (with defaults, array/object serialization)
