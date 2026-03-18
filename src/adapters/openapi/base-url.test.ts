@@ -89,7 +89,7 @@ describe('extractSwagger2BaseUrl', () => {
     expect(extractSwagger2BaseUrl(api)).toBe('https://api.example.com/v1')
   })
 
-  it('returns empty for missing host', () => {
+  it('returns empty for missing host without specUrl', () => {
     const api = {} as OpenAPIV2.Document
     expect(extractSwagger2BaseUrl(api)).toBe('')
   })
@@ -97,5 +97,25 @@ describe('extractSwagger2BaseUrl', () => {
   it('defaults scheme to https', () => {
     const api = { host: 'api.example.com' } as OpenAPIV2.Document
     expect(extractSwagger2BaseUrl(api)).toBe('https://api.example.com')
+  })
+
+  it('falls back to specUrl origin when host is missing', () => {
+    const api = { swagger: '2.0', info: { title: 'Test', version: '1' } } as OpenAPIV2.Document
+    expect(extractSwagger2BaseUrl(api, 'https://open.gsa.gov/api/apidatagov/v1/openapi.yaml')).toBe('https://open.gsa.gov')
+  })
+
+  it('falls back to specUrl origin with basePath', () => {
+    const api = { basePath: '/v2' } as OpenAPIV2.Document
+    expect(extractSwagger2BaseUrl(api, 'https://example.com/docs/spec.yaml')).toBe('https://example.com/v2')
+  })
+
+  it('uses specUrl scheme when host is missing and no schemes in spec', () => {
+    const api = {} as OpenAPIV2.Document
+    expect(extractSwagger2BaseUrl(api, 'http://localhost:8080/spec.yaml')).toBe('http://localhost:8080')
+  })
+
+  it('prefers spec schemes over specUrl scheme', () => {
+    const api = { schemes: ['https'] } as unknown as OpenAPIV2.Document
+    expect(extractSwagger2BaseUrl(api, 'http://localhost:8080/spec.yaml')).toBe('https://localhost:8080')
   })
 })

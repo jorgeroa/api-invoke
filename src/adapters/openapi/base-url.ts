@@ -45,12 +45,25 @@ export function extractOpenAPI3BaseUrl(api: OpenAPIV3.Document, specUrl?: string
 
 /**
  * Extract base URL from Swagger 2.0 host, basePath, and schemes.
- * Returns '' when host is missing (must be resolved by the consumer with spec URL).
+ * Per the Swagger 2.0 spec, when host is omitted the host serving the
+ * documentation is assumed to be the API host — so we fall back to
+ * the spec URL's origin when available.
  */
-export function extractSwagger2BaseUrl(api: OpenAPIV2.Document): string {
-  const host = api.host
+export function extractSwagger2BaseUrl(api: OpenAPIV2.Document, specUrl?: string): string {
+  let host = api.host
+  let scheme = api.schemes?.[0] ?? 'https'
+
+  if (!host && specUrl) {
+    try {
+      const u = new URL(specUrl)
+      host = u.host
+      scheme = api.schemes?.[0] ?? u.protocol.replace(':', '')
+    } catch {
+      // invalid specUrl — fall through
+    }
+  }
+
   if (!host) return ''
-  const scheme = api.schemes?.[0] ?? 'https'
   const basePath = api.basePath ?? ''
   return `${scheme}://${host}${basePath}`
 }
