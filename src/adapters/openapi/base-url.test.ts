@@ -118,4 +118,19 @@ describe('extractSwagger2BaseUrl', () => {
     const api = { schemes: ['https'] } as unknown as OpenAPIV2.Document
     expect(extractSwagger2BaseUrl(api, 'http://localhost:8080/spec.yaml')).toBe('https://localhost:8080')
   })
+
+  it('returns empty when specUrl is not a valid URL', () => {
+    const api = {} as OpenAPIV2.Document
+    expect(extractSwagger2BaseUrl(api, 'not-a-url')).toBe('')
+  })
+
+  it('returns empty when specUrl is an empty string', () => {
+    const api = {} as OpenAPIV2.Document
+    expect(extractSwagger2BaseUrl(api, '')).toBe('')
+  })
+
+  it('preserves trailing slash on basePath with specUrl fallback', () => {
+    const api = { basePath: '/v2/' } as OpenAPIV2.Document
+    expect(extractSwagger2BaseUrl(api, 'https://example.com/docs/spec.yaml')).toBe('https://example.com/v2/')
+  })
 })

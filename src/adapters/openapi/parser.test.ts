@@ -257,6 +257,37 @@ describe('response schema extraction', () => {
   })
 })
 
+describe('Swagger 2.0 base URL fallback', () => {
+  it('uses specUrl origin when host is missing', async () => {
+    const spec = {
+      swagger: '2.0',
+      info: { title: 'Test', version: '1.0.0' },
+      paths: {
+        '/status': {
+          get: { operationId: 'getStatus', responses: { '200': { description: 'OK' } } },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec, { specUrl: 'https://open.gsa.gov/api/apidatagov/v1/openapi.yaml' })
+    expect(api.baseUrl).toBe('https://open.gsa.gov')
+  })
+
+  it('uses specUrl origin with basePath when host is missing', async () => {
+    const spec = {
+      swagger: '2.0',
+      info: { title: 'Test', version: '1.0.0' },
+      basePath: '/v2',
+      paths: {
+        '/users': {
+          get: { operationId: 'getUsers', responses: { '200': { description: 'OK' } } },
+        },
+      },
+    }
+    const api = await parseOpenAPISpec(spec, { specUrl: 'https://example.com/docs/spec.yaml' })
+    expect(api.baseUrl).toBe('https://example.com/v2')
+  })
+})
+
 describe('operation security extraction', () => {
   it('extracts per-operation security requirements', async () => {
     const spec = {

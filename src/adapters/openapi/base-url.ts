@@ -59,7 +59,8 @@ export function extractSwagger2BaseUrl(api: OpenAPIV2.Document, specUrl?: string
       host = u.host
       scheme = api.schemes?.[0] ?? u.protocol.replace(':', '')
     } catch {
-      // invalid specUrl — fall through
+      // invalid specUrl — host stays empty, function returns '' below,
+      // and the caller's deriveBaseUrl fallback in parser.ts handles the final attempt
     }
   }
 
