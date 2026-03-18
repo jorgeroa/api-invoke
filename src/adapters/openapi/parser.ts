@@ -76,7 +76,7 @@ export async function parseOpenAPISpec(
 
     let baseUrl = isOpenAPI3
       ? extractOpenAPI3BaseUrl(api as OpenAPIV3.Document, sourceUrl)
-      : extractSwagger2BaseUrl(api as OpenAPIV2.Document)
+      : extractSwagger2BaseUrl(api as OpenAPIV2.Document, sourceUrl)
 
     // Fallback: derive base URL from spec URL when spec doesn't provide one
     if (!baseUrl && sourceUrl) {
